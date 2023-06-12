@@ -2,7 +2,7 @@
 
 ### Overview
 
-The code in this folder trains and evaluates models to detect geese in aerial images, based on the <a href="https://www.usgs.gov/data/aerial-photo-imagery-fall-waterfowl-surveys-izembek-lagoon-alaska-2017-2019">Izembek Lagoon dataset</a>.  Images are annotated with points, labeled as brant, Canada, gull, emperor, and other.  The goal is accuacy on brant, which is by far the most common class (there are around 400k "brant" points, and less than 100k of everything else combined).
+The code in this repo trains and evaluates models to detect geese in aerial images, based on the <a href="https://www.usgs.gov/data/aerial-photo-imagery-fall-waterfowl-surveys-izembek-lagoon-alaska-2017-2019">Izembek Lagoon dataset</a>.  Images are annotated with points, labeled as brant, Canada, gull, emperor, and other.  The goal is accuacy on brant, which is by far the most common class (there are around 400k "brant" points, and less than 100k of everything else combined).
 
 There are around 100,000 images total, about 95% of which contain no geese.  Images are 8688 x 5792.  A typical ground truth image looks like this:
 
@@ -10,7 +10,7 @@ There are around 100,000 images total, about 95% of which contain no geese.  Ima
 
 For anyone looking at this repo and getting excited about that image, let's be super-duper-clear that *that is a ground truth image*.  Not the results don't look good too, but this image isn't results, it's ground truth.
 
-The annotations you can vaguely see as different colors correspond to different species of goose.  Most of this folder operates on 1280x1280 patches that look like this:
+The annotations you can vaguely see as different colors correspond to different species of goose.  Most of this repo operates on 1280x1280 patches that look like this:
 
 <img src="annotated_patch.png">
 
