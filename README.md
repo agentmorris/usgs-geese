@@ -6,13 +6,17 @@ The code in this repo trains and evaluates models to detect geese in aerial imag
 
 There are around 100,000 images total, about 95% of which contain no geese.  Images are 8688 x 5792.  A typical ground truth image looks like this:
 
-<img src="sample_image.jpg">
-
-For anyone looking at this repo and getting excited about that image, let's be super-duper-clear that *that is a ground truth image*.  Not the results don't look good too, but this image isn't results, it's ground truth.
+<img src="sample_image.jpg" width="800px;"><br/>
 
 The annotations you can vaguely see as different colors correspond to different species of goose.  Most of this repo operates on 1280x1280 patches that look like this:
 
-<img src="annotated_patch.png">
+<img src="annotated_patch.png" width="800px;"><br/>
+
+Here's a random patch of predictions, but you should <i>never</i> put any stock into a "random" image of results that someone shows you on the Internet:
+
+<img src="sample_results_patch.jpg" width="800px;"><br/>
+
+Maybe all the results really look like that, maybe they don't.  I pinky-swear that the image from which this patch was cropped was not used in training, and that in general the results really do look like this, but... never trust random results on the Internet.
 
 ### Files
 
