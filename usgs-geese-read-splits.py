@@ -31,6 +31,7 @@ output_folder_base = os.path.expanduser('~/data/usgs-geese')
 train_images_list_file = os.path.join(output_folder_base,'train_images.json')
 val_images_list_file = os.path.join(output_folder_base,'val_images.json')
 
+
 #%% Read train and val patch names
 
 

@@ -373,6 +373,18 @@ if False:
     preview_confidence_thresholds = None
     image_level_results_base = os.path.expanduser('~/tmp/usgs-inference/image_level_results')
     image_level_results_filenames = os.listdir(image_level_results_base)
+    image_level_results_filenames = [fn for fn in image_level_results_filenames if \
+                                     fn.endswith('.json')]
+    image_level_results_filenames.sort()
+    
+    image_level_results_filenames = [\
+                                     'media_user_My_Passport_2022-10-12_md_results_image_level.json',
+                                     'media_user_My_Passport_2022-10-12_md_results_image_level_nms.json',
+                                     'media_user_My_Passport_2022-10-16_md_results_image_level.json',
+                                     'media_user_My_Passport_2022-10-16_md_results_image_level_nms.json',
+                                     'media_user_My_Passport_2022-10-17_md_results_image_level.json',
+                                     'media_user_My_Passport_2022-10-17_md_results_image_level_nms.json']        
+        
     preview_folder_base = os.path.expanduser('~/tmp/usgs-inference/preview')
     
     # image_level_results_filenames = [fn for fn in image_level_results_filenames if 'nms' in fn]
@@ -415,7 +427,8 @@ if False:
     image_level_results_filenames = os.listdir(image_level_results_base)
     image_level_results_filenames = [fn for fn in image_level_results_filenames if \
                                      fn.endswith('.json')]
-
+    image_level_results_filenames.sort()
+    
     # image_level_results_file_relative = image_level_results_filenames[0]
     for image_level_results_file_relative in image_level_results_filenames:
         
@@ -434,4 +447,39 @@ if False:
                                  counting_confidence_thresholds=None,image_name_prefix=image_name_prefix)
     
     # ...for each results file
-                             
+
+    
+    #%% Zip results files                            
+    
+    image_level_results_base = os.path.expanduser('~/tmp/usgs-inference/image_level_results')
+    image_level_results_filenames = os.listdir(image_level_results_base)
+    image_level_results_filenames = [fn for fn in image_level_results_filenames if \
+                                     fn.endswith('.csv')]
+    image_level_results_filenames = [os.path.join(image_level_results_base,fn) for \
+                                     fn in image_level_results_filenames]
+
+    import zipfile
+    from zipfile import ZipFile
+
+    output_path = image_level_results_base
+
+    def zip_file(fn, overwrite=False):
+        
+        basename = os.path.basename(fn)
+        zip_file_name = os.path.join(output_path,basename + '.zip')
+        
+        if (not overwrite) and (os.path.isfile(zip_file_name)):
+            print('Skipping existing file {}'.format(zip_file_name))
+            return
+        
+        print('Zipping {} to {}'.format(fn,zip_file_name))
+        
+        with ZipFile(zip_file_name,'w',zipfile.ZIP_DEFLATED) as zipf:
+            zipf.write(fn,arcname=basename,compresslevel=9,compress_type=zipfile.ZIP_DEFLATED)
+
+    from multiprocessing.pool import ThreadPool
+    pool = ThreadPool(len(image_level_results_filenames))
+    with tqdm(total=len(image_level_results_filenames)) as pbar:
+        for i,_ in enumerate(pool.imap_unordered(zip_file,image_level_results_filenames)):
+            pbar.update()
+

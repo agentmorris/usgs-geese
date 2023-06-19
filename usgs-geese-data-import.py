@@ -62,7 +62,7 @@ pass
 
 #%% Enumerate annotation files
 
-import path_utils
+from md_utils import path_utils
 
 annotation_files = path_utils.recursive_file_list(annotations_folder)
 image_files_raw = path_utils.recursive_file_list(image_folder)
@@ -208,7 +208,6 @@ mystery_annotations = []
 image_id_to_image = {}
 empty_files = []
 annotations = []
-
 next_category_id = 0
 category_name_to_category_id = {}
 

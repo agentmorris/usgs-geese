@@ -51,9 +51,9 @@ https://github.com/agentmorris/MegaDetector/tree/main/detection#training-with-yo
 ## Environment prep
 
 """
-conda create --name yolov5
-conda activate yolov5
-conda install pip
+mamba create --name yolov5
+mamba activate yolov5
+mamba install pip
 git clone https://github.com/ultralytics/yolov5 yolov5-current
 cd yolov5-current
 pip install -r requirements.txt
@@ -89,7 +89,7 @@ cd ~/git/yolov5-current
 # I usually have an older commit of yolov5 on my PYTHONPATH, remove it.
 export PYTHONPATH=
 LD_LIBRARY_PATH=
-conda activate yolov5
+mamba activate yolov5
 
 # On my 2x24GB GPU setup, a batch size of 16 failed, but 8 was safe.  Autobatch did not
 # work; I got an incomprehensible error that I decided not to fix, but I'm pretty sure
@@ -110,7 +110,7 @@ python train.py --img ${IMAGE_SIZE} --batch ${BATCH_SIZE} --epochs ${EPOCHS} --w
 
 """
 cd ~/git/yolov5-current
-conda activate yolov5
+mamba activate yolov5
 tensorboard --logdir usgs-geese
 """
 
@@ -119,7 +119,7 @@ tensorboard --logdir usgs-geese
 
 """
 cd ~/git/yolov5-current
-conda activate yolov5
+mamba activate yolov5
 LD_LIBRARY_PATH=
 export PYTHONPATH=
 python train.py --resume
@@ -301,7 +301,7 @@ Emperor      11547        443      0.112      0.132     0.0694     0.0403
 
 """
 cd ~/git/yolov5-current
-conda activate yolov5
+mamba activate yolov5
 LD_LIBRARY_PATH=
 export PYTHONPATH=
 """
@@ -425,7 +425,7 @@ for prediction_file in md_format_prediction_files:
 """
 export PYTHONPATH=/home/user/git/MegaDetector
 cd ~/git/MegaDetector/detection/
-conda activate yolov5
+mamba activate yolov5
 
 TRAINING_RUN_NAME="usgs-geese-yolov5x6-b8-img1280-e100"
 MODEL_FILE="/home/user/models/usgs-geese/${TRAINING_RUN_NAME}-best.pt"
@@ -443,7 +443,7 @@ python run_detector_batch.py ${MODEL_FILE} ${DATA_FOLDER}/yolo_train ${RESULTS_F
 #
 
 """
-conda deactivate
+mamba deactivate
 
 cd ~/git/MegaDetector/api/batch_processing/postprocessing/
 
