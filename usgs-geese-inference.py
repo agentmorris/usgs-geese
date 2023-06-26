@@ -1173,10 +1173,10 @@ if False:
     # input_folder_base = '/media/user/My Passport/2022-10-09'
     # input_folder_base = '/media/user/My Passport/2022-10-12'
     # input_folder_base = '/media/user/My Passport/2022-10-16'
-    input_folder_base = '/media/user/My Passport/2022-10-17'
-    
+    # input_folder_base = '/media/user/My Passport/2022-10-17'
     # input_folder_base = '/home/user/data/usgs-geese/eval_images'
-    
+    input_folder_base = '/media/user/My Passport1/2017-2019/01_JPGs/2017/Replicate_2017-10-03'
+        
     results = run_model_on_folder(input_folder_base,recursive=True)
     
 

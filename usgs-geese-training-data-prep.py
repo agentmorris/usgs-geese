@@ -705,6 +705,9 @@ def create_virtual_yolo_dirs(yolo_base_dir):
     link_new = os.path.join(labels_dir,'object.data')
     safe_create_link(link_exists,link_new)
 
+# Only do this for the "all" dir!  Doing this in the training and val dirs 
+# impacts training.
+
 create_virtual_yolo_dirs(yolo_all_dir)
-create_virtual_yolo_dirs(yolo_train_dir)
-create_virtual_yolo_dirs(yolo_val_dir)
+# create_virtual_yolo_dirs(yolo_train_dir)
+# create_virtual_yolo_dirs(yolo_val_dir)

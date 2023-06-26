@@ -16,6 +16,7 @@
 
 import os
 import glob
+import json
 
 training_folder_base = '/home/user/data/usgs-geese'
 training_folder_val = os.path.join(training_folder_base,'yolo_val')
@@ -23,7 +24,7 @@ training_folder_train = os.path.join(training_folder_base,'yolo_train')
 
 assert all([os.path.isdir(fn) for fn in (training_folder_train,training_folder_val)])
 
-image_folder_base = '/media/user/My Passport/2017-2019/01_JPGs'
+image_folder_base = '/media/user/My Passport1/2017-2019/01_JPGs'
 assert os.path.isdir(image_folder_base)
 assert image_folder_base[-1] != '/'
 
@@ -33,7 +34,6 @@ val_images_list_file = os.path.join(output_folder_base,'val_images.json')
 
 
 #%% Read train and val patch names
-
 
 yolo_annotation_files_train = glob.glob(training_folder_train + '/*.txt')
 for fn in yolo_annotation_files_train:
@@ -124,10 +124,23 @@ for i_fn,fn in enumerate(val_image_files):
 
 #%% Write train/val splits out to file
 
-import json
-
 with open(train_images_list_file,'w') as f:
     json.dump(train_image_files,f,indent=1)
     
 with open(val_images_list_file,'w') as f:
-    json.dump(val_image_files,f,indent=1)    
+    json.dump(val_image_files,f,indent=1)
+    
+    
+#%% Read train/val splits from file    
+
+with open(train_images_list_file,'r') as f:
+    train_image_files = json.load(f)
+    
+with open(val_images_list_file,'r') as f:
+    val_image_files = json.load(f)
+    
+print('Loaded {} train and {} val image files'.format(
+    len(train_image_files),len(val_image_files)))
+
+
+#%% Find the number of images matching a particular token in train/val

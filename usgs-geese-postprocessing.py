@@ -265,13 +265,35 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
 # ...def patch_level_preview()
 
 
-def image_level_counting(image_level_results_file,output_file=None,overwrite=False,
-                         counting_confidence_thresholds=None,image_name_prefix=''):
+def image_level_counting(image_level_results_file,
+                         image_name_prefix,
+                         drive_root_path,
+                         output_file=None,
+                         overwrite=False,
+                         counting_confidence_thresholds=None):
     """
     Given an image-level results file:
         
     * Count the number of occurrences in each class above a few different thresholds
     * Write the resulting counts to .csv
+    
+    'image_name_pefix' is everything between the drive root path, e.g.:
+    
+    /media/user/My Passport1'
+     
+    ...and a particular image in a results file.  E.g. for the results file:
+    
+    media_user_My_Passport_2022-10-16_md_results_image_level_nms.json
+     
+    ...in which filenames look like:
+    
+    CAM3/CAM30033.JPG
+     
+    The prefix will be:
+    
+    2022-10-12/
+    
+    **eval** is a special-case prefix for handling the eval set.
     """
     
     if counting_confidence_thresholds is None:
@@ -281,7 +303,8 @@ def image_level_counting(image_level_results_file,output_file=None,overwrite=Fal
         output_file = image_level_results_file + '_counts.csv'
 
     if os.path.isfile(output_file) and not overwrite:
-        raise ValueError('Output file {} exists and overwrite=False'.format(output_file))
+        print('Output file {} exists and overwrite=False, skiping'.format(output_file))
+        return
         
     with open(image_level_results_file,'r') as f:
         image_level_results = json.load(f)
@@ -311,22 +334,23 @@ def image_level_counting(image_level_results_file,output_file=None,overwrite=Fal
     # im = image_level_results['images'][0]
     for im in tqdm(image_level_results['images']):
         
-        image_path_local = im['file']
+        image_path_prefix_relative = im['file']
         
         if image_name_prefix == '**eval**':
             # For the eval set, filenames look like
             # 'val-images/2019_Replicate_2019-10-11_Cam3_CAM39080.JPG'            
             prefix = '2017-2019/01_JPGs/'
-            fn = os.path.basename(image_path_local)
+            fn = os.path.basename(image_path_prefix_relative)
             fn = fn.replace('Replicate_','Replicate*').replace('Out_lagoon','Out*lagoon')
             fn = fn.replace('_','/')
             fn = fn.replace('*','_')
-            image_path_original = prefix + fn
+            image_path_drive_relative = prefix + fn
             
         else:
-            image_path_original = image_name_prefix + image_path_local
+            image_path_drive_relative = os.path.join(image_name_prefix,image_path_prefix_relative)
         
-        assert os.path.isfile(os.path.join('/media/user/My Passport',image_path_original))
+        image_path_absolute = os.path.join(drive_root_path,image_path_drive_relative)
+        assert os.path.isfile(image_path_absolute)
         
         for confidence_threshold in counting_confidence_thresholds:
             
@@ -344,8 +368,7 @@ def image_level_counting(image_level_results_file,output_file=None,overwrite=Fal
             # ...for each detection
             
             im_results = {}
-            im_results['image_path_local'] = image_path_local
-            im_results['image_path_original'] = image_path_original
+            im_results['image_path_drive_relative'] = image_path_drive_relative
             im_results['confidence_threshold'] = confidence_threshold
             
             for category_id in category_id_to_count:
@@ -372,29 +395,46 @@ if False:
     n_patches = 2000
     preview_confidence_thresholds = None
     image_level_results_base = os.path.expanduser('~/tmp/usgs-inference/image_level_results')
-    image_level_results_filenames = os.listdir(image_level_results_base)
-    image_level_results_filenames = [fn for fn in image_level_results_filenames if \
-                                     fn.endswith('.json')]
-    image_level_results_filenames.sort()
     
-    image_level_results_filenames = [\
-                                     'media_user_My_Passport_2022-10-12_md_results_image_level.json',
-                                     'media_user_My_Passport_2022-10-12_md_results_image_level_nms.json',
-                                     'media_user_My_Passport_2022-10-16_md_results_image_level.json',
-                                     'media_user_My_Passport_2022-10-16_md_results_image_level_nms.json',
-                                     'media_user_My_Passport_2022-10-17_md_results_image_level.json',
-                                     'media_user_My_Passport_2022-10-17_md_results_image_level_nms.json']        
+    if False:
         
-    preview_folder_base = os.path.expanduser('~/tmp/usgs-inference/preview')
+        image_level_results_filenames = os.listdir(image_level_results_base)
+        image_level_results_filenames = [fn for fn in image_level_results_filenames if \
+                                         fn.endswith('.json')]
+        image_level_results_filenames.sort()
+        
+        image_level_results_filenames = [\
+                                         'media_user_My_Passport_2022-10-12_md_results_image_level.json',
+                                         'media_user_My_Passport_2022-10-12_md_results_image_level_nms.json',
+                                         'media_user_My_Passport_2022-10-16_md_results_image_level.json',
+                                         'media_user_My_Passport_2022-10-16_md_results_image_level_nms.json',
+                                         'media_user_My_Passport_2022-10-17_md_results_image_level.json',
+                                         'media_user_My_Passport_2022-10-17_md_results_image_level_nms.json']
+        image_folder_base = None
+        
+    image_level_results_filenames = [
+        'media_user_My_Passport1_2017-2019_01_JPGs_2017_Replicate_2017-10-03_md_results_image_level_nms.json'
+        ]
     
+    result_file_to_folder_base = {}
+    result_file_to_folder_base[
+        'media_user_My_Passport1_2017-2019_01_JPGs_2017_Replicate_2017-10-03_md_results_image_level_nms.json'
+        ] = \
+        '/media/user/My Passport1/2017-2019/01_JPGs/2017/Replicate_2017-10-03'
+    
+    assert os.path.isdir(image_folder_base)
     # image_level_results_filenames = [fn for fn in image_level_results_filenames if 'nms' in fn]
 
+    preview_folder_base = os.path.expanduser('~/tmp/usgs-inference/preview')    
+    
     html_files = []
     
     # fn = image_level_results_filenames[2]
     for image_level_results_file in image_level_results_filenames:
         
-        if 'eval' in image_level_results_file:
+        if image_level_results_file in result_file_to_folder_base:
+            image_folder_base = result_file_to_folder_base[image_level_results_file]
+        elif 'eval' in image_level_results_file:
             image_folder_base = os.path.expanduser('~/data/usgs-geese/eval_images')
         else:
             # 'media_user_My_Passport_2022-10-09_md_results_image_level.json'
@@ -423,29 +463,60 @@ if False:
     output_file = None
     overwrite = True
     counting_confidence_thresholds = None
+    drive_root_path = '/media/user/My Passport1'
+    
     image_level_results_base = os.path.expanduser('~/tmp/usgs-inference/image_level_results')
     image_level_results_filenames = os.listdir(image_level_results_base)
     image_level_results_filenames = [fn for fn in image_level_results_filenames if \
                                      fn.endswith('.json')]
     image_level_results_filenames.sort()
     
+    image_results_file_relative_to_prefix = {}
+    image_results_file_relative_to_prefix[
+        'media_user_My_Passport1_2017-2019_01_JPGs_2017_Replicate_2017-10-03_md_results_image_level.json'
+        ] = '2017-2019/01_JPGs/2017/Replicate_2017-10-03'
+    image_results_file_relative_to_prefix[
+        'media_user_My_Passport1_2017-2019_01_JPGs_2017_Replicate_2017-10-03_md_results_image_level_nms.json'
+        ] = '2017-2019/01_JPGs/2017/Replicate_2017-10-03'
+    
     # image_level_results_file_relative = image_level_results_filenames[0]
     for image_level_results_file_relative in image_level_results_filenames:
         
-        if 'eval' in image_level_results_file_relative:
+        if image_level_results_file_relative in image_results_file_relative_to_prefix:
+            image_name_prefix = image_results_file_relative_to_prefix[image_level_results_file_relative]
+        elif 'eval' in image_level_results_file_relative:
             image_name_prefix = '**eval**'
         else:
+            # The prefix is everything between the universal root path, e.g.:
+            #
+            # /media/user/My Passport1'
+            # 
+            # ...and a particular image in a results file.  E.g. for the results file:
+            #
+            # media_user_My_Passport_2022-10-16_md_results_image_level_nms.json
+            # 
+            # ...in which filenames look like:
+            #
+            # CAM3/CAM30033.JPG
+            # 
+            # The prefix will be:
+            #
+            # 2022-10-12/
             image_name_prefix = os.path.basename(image_level_results_file_relative).\
                 replace('My_Passport','My Passport').\
                 split('_')[3] + '/'
-            assert image_name_prefix.startswith('2022') and len(image_name_prefix) == 11
+            # assert image_name_prefix.startswith('2022') and len(image_name_prefix) == 11
     
         image_level_results_file = os.path.join(image_level_results_base,
                                                 image_level_results_file_relative)
         
-        image_level_counting(image_level_results_file,output_file=None,overwrite=True,
-                                 counting_confidence_thresholds=None,image_name_prefix=image_name_prefix)
-    
+        image_level_counting(image_level_results_file,
+                             image_name_prefix,
+                             drive_root_path,
+                             output_file=None,
+                             overwrite=True,
+                             counting_confidence_thresholds=None)    
+
     # ...for each results file
 
     
@@ -463,7 +534,7 @@ if False:
 
     output_path = image_level_results_base
 
-    def zip_file(fn, overwrite=False):
+    def zip_file(fn, overwrite=True):
         
         basename = os.path.basename(fn)
         zip_file_name = os.path.join(output_path,basename + '.zip')
