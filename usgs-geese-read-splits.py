@@ -144,3 +144,11 @@ print('Loaded {} train and {} val image files'.format(
 
 
 #%% Find the number of images matching a particular token in train/val
+
+token = '2017/Replicate_2017-10-03'
+
+matching_train_images = [fn for fn in train_image_files if token in fn]
+matching_val_images = [fn for fn in val_image_files if token in fn]
+
+print('{} train images and {} val images contain token {}'.format(
+    len(matching_train_images),len(matching_val_images),token))
