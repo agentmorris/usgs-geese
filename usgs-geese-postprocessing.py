@@ -2,11 +2,11 @@
 #
 # usgs-geese-postprocessing.py
 #
-# Stuff we do with model results after inference.
+# Stuff we do with model results after inference:
 #
 # * Generate patch-level preview pages given a set of image-level results.
 #
-# * Generate estimated image-level counts from image-level results.
+# * Generate estimated image-level counts from image-level results (and write to .csv).
 #
 ########
 
@@ -418,6 +418,8 @@ if False:
     n_patches = 2000
     preview_confidence_thresholds = [0.625]
     image_level_results_base = os.path.expanduser('~/tmp/usgs-inference/image_level_results')
+    
+    # Use this to specify non-default image folder bases for individual files
     result_file_to_folder_base = {}
     
     image_level_results_filenames = os.listdir(image_level_results_base)
@@ -425,21 +427,20 @@ if False:
                                      fn.endswith('.json')]        
     image_level_results_filenames = [fn for fn in image_level_results_filenames if \
                                      'nms' in fn]
+    
+    image_level_results_filenames.sort()
 
-    # Non-default folder bases
     result_file_to_folder_base[
         'media_user_My_Passport1_2017-2019_01_JPGs_2017_Replicate_2017-10-03_md_results_image_level_nms.json'
         ] = \
         '/media/user/My Passport/2017-2019/01_JPGs/2017/Replicate_2017-10-03'
     
-    image_level_results_filenames.sort()
-    
-    # image_level_results_filenames = [fn for fn in image_level_results_filenames if 'nms' in fn]
-
     preview_folder_base = os.path.expanduser('~/tmp/usgs-inference/preview')    
     
     html_files = []
     
+    # TODO: parallelize this loop
+    #
     # i_file = 0; image_level_results_file = image_level_results_filenames[i_file]
     for i_file,image_level_results_file in enumerate(image_level_results_filenames):
         
@@ -487,10 +488,10 @@ if False:
     image_level_results_filenames = os.listdir(image_level_results_base)
     image_level_results_filenames = [fn for fn in image_level_results_filenames if \
                                      fn.endswith('.json')]
-    image_level_results_filenames.sort()
-    
     image_level_results_filenames = [fn for fn in image_level_results_filenames if 'nms' in fn]
     
+    image_level_results_filenames.sort()
+        
     image_results_file_relative_to_prefix = {}
     image_results_file_relative_to_prefix[
         'media_user_My_Passport1_2017-2019_01_JPGs_2017_Replicate_2017-10-03_md_results_image_level.json'
