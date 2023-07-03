@@ -55,7 +55,5 @@ These are listed in roughly the order in which you would use them.
 
 #### usgs-geese-postprocessing.py
 
-* Do stuff with inference results:
-
-    * Generate patch-level previews from image-level model results
-    * Generate estimated image-level bird counts from image-level model results
+* Generate patch-level previews from image-level model results
+* Generate estimated image-level bird counts from image-level model results (and write to .csv)
