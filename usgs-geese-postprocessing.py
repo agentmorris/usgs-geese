@@ -322,7 +322,8 @@ def image_level_counting(image_level_results_file,
     for category_id in image_level_results['detection_categories']:
         category_id_to_name[category_id] = \
             image_level_results['detection_categories'][category_id].lower()
-            
+    category_name_to_id = {v: k for k, v in category_id_to_name.items()}
+    
     # This will be a list of dicts with fields
     #
     # image_path_local (str)
@@ -352,15 +353,33 @@ def image_level_counting(image_level_results_file,
         image_path_absolute = os.path.join(drive_root_path,image_path_drive_relative)
         assert os.path.isfile(image_path_absolute)
         
-        for confidence_threshold in counting_confidence_thresholds:
+        for confidence_threshold_set in counting_confidence_thresholds:
             
             category_id_to_count = {}
             for cat_id in image_level_results['detection_categories'].keys():
                 category_id_to_count[cat_id] = 0
             
+            category_id_to_threshold = {}
+            
+            # If we're using the same confidence threshold for all classes
+            if isinstance(confidence_threshold_set,float):
+                for cat_id in category_id_to_count:
+                    category_id_to_threshold[cat_id] = confidence_threshold_set
+            # Otherwise this should map category *names* (not IDs) to thresholds
+            else:
+                assert isinstance(confidence_threshold_set,dict)
+                assert len(category_name_to_id) == len(confidence_threshold_set)
+                for category_name in category_name_to_id:
+                    assert category_name in confidence_threshold_set, \
+                        'No threshold mapping for category {}'.format(category_name)
+                for category_name in confidence_threshold_set:
+                    category_id_to_threshold[category_name_to_id[category_name]] = \
+                        confidence_threshold_set[category_name]                        
+            
             # det = im['detections'][0]
             for det in im['detections']:
                 
+                confidence_threshold = category_id_to_threshold[det['category']]
                 if det['conf'] >= confidence_threshold:                
                     category_id_to_count[det['category']] = \
                         category_id_to_count[det['category']] + 1
@@ -369,11 +388,13 @@ def image_level_counting(image_level_results_file,
             
             im_results = {}
             im_results['image_path_drive_relative'] = image_path_drive_relative
-            im_results['confidence_threshold'] = confidence_threshold
+            im_results['confidence_threshold_string'] = str(confidence_threshold_set)
             
             for category_id in category_id_to_count:
                 im_results['count_' + category_id_to_name[category_id]] = \
                     category_id_to_count[category_id]
+                im_results['threshold_' + category_id_to_name[category_id]] = \
+                    category_id_to_threshold[category_id]
         
             results.append(im_results)
             
@@ -385,6 +406,8 @@ def image_level_counting(image_level_results_file,
     df = pd.DataFrame.from_dict(results)
     df.to_csv(output_file,header=True,index=False)
     
+# ...def image_level_counting(...)
+
 
 #%% Interactive driver
 
@@ -393,36 +416,24 @@ if False:
     #%% Preview
     
     n_patches = 2000
-    preview_confidence_thresholds = None
+    preview_confidence_thresholds = [0.625]
     image_level_results_base = os.path.expanduser('~/tmp/usgs-inference/image_level_results')
-    
-    if False:
-        
-        image_level_results_filenames = os.listdir(image_level_results_base)
-        image_level_results_filenames = [fn for fn in image_level_results_filenames if \
-                                         fn.endswith('.json')]
-        image_level_results_filenames.sort()
-        
-        image_level_results_filenames = [\
-                                         'media_user_My_Passport_2022-10-12_md_results_image_level.json',
-                                         'media_user_My_Passport_2022-10-12_md_results_image_level_nms.json',
-                                         'media_user_My_Passport_2022-10-16_md_results_image_level.json',
-                                         'media_user_My_Passport_2022-10-16_md_results_image_level_nms.json',
-                                         'media_user_My_Passport_2022-10-17_md_results_image_level.json',
-                                         'media_user_My_Passport_2022-10-17_md_results_image_level_nms.json']
-        image_folder_base = None
-        
-    image_level_results_filenames = [
-        'media_user_My_Passport1_2017-2019_01_JPGs_2017_Replicate_2017-10-03_md_results_image_level_nms.json'
-        ]
-    
     result_file_to_folder_base = {}
+    
+    image_level_results_filenames = os.listdir(image_level_results_base)
+    image_level_results_filenames = [fn for fn in image_level_results_filenames if \
+                                     fn.endswith('.json')]        
+    image_level_results_filenames = [fn for fn in image_level_results_filenames if \
+                                     'nms' in fn]
+
+    # Non-default folder bases
     result_file_to_folder_base[
         'media_user_My_Passport1_2017-2019_01_JPGs_2017_Replicate_2017-10-03_md_results_image_level_nms.json'
         ] = \
-        '/media/user/My Passport1/2017-2019/01_JPGs/2017/Replicate_2017-10-03'
+        '/media/user/My Passport/2017-2019/01_JPGs/2017/Replicate_2017-10-03'
     
-    assert os.path.isdir(image_folder_base)
+    image_level_results_filenames.sort()
+    
     # image_level_results_filenames = [fn for fn in image_level_results_filenames if 'nms' in fn]
 
     preview_folder_base = os.path.expanduser('~/tmp/usgs-inference/preview')    
@@ -463,13 +474,16 @@ if False:
     output_file = None
     overwrite = True
     counting_confidence_thresholds = None
-    drive_root_path = '/media/user/My Passport1'
+    drive_root_path = '/media/user/My Passport'
+    assert os.path.isdir(drive_root_path)
     
     image_level_results_base = os.path.expanduser('~/tmp/usgs-inference/image_level_results')
     image_level_results_filenames = os.listdir(image_level_results_base)
     image_level_results_filenames = [fn for fn in image_level_results_filenames if \
                                      fn.endswith('.json')]
     image_level_results_filenames.sort()
+    
+    image_level_results_filenames = [fn for fn in image_level_results_filenames if 'nms' in fn]
     
     image_results_file_relative_to_prefix = {}
     image_results_file_relative_to_prefix[
@@ -478,6 +492,12 @@ if False:
     image_results_file_relative_to_prefix[
         'media_user_My_Passport1_2017-2019_01_JPGs_2017_Replicate_2017-10-03_md_results_image_level_nms.json'
         ] = '2017-2019/01_JPGs/2017/Replicate_2017-10-03'
+    
+    confidence_threshold_sets = [0.5, 0.525, 0.55, 0.575, 0.6, 0.625, 0.65, 0.675]
+    
+    # E.g.: 'count_brant', 'count_other', 'count_gull', 'count_canada', 'count_emperor'
+    confidence_threshold_sets.append(
+        {'brant':0.65, 'other':0.65, 'gull':0.65, 'canada':0.625, 'emperor':0.6})
     
     # image_level_results_file_relative = image_level_results_filenames[0]
     for image_level_results_file_relative in image_level_results_filenames:
@@ -515,7 +535,7 @@ if False:
                              drive_root_path,
                              output_file=None,
                              overwrite=True,
-                             counting_confidence_thresholds=None)    
+                             counting_confidence_thresholds=confidence_threshold_sets)    
 
     # ...for each results file
 
