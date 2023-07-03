@@ -440,8 +440,11 @@ if False:
     
     html_files = []
     
-    # fn = image_level_results_filenames[2]
-    for image_level_results_file in image_level_results_filenames:
+    # i_file = 0; image_level_results_file = image_level_results_filenames[i_file]
+    for i_file,image_level_results_file in enumerate(image_level_results_filenames):
+        
+        print('\Generating preview for file {} of {}'.format(
+            i_file,len(image_level_results_filenames)))
         
         if image_level_results_file in result_file_to_folder_base:
             image_folder_base = result_file_to_folder_base[image_level_results_file]
@@ -449,7 +452,8 @@ if False:
             image_folder_base = os.path.expanduser('~/data/usgs-geese/eval_images')
         else:
             # 'media_user_My_Passport_2022-10-09_md_results_image_level.json'
-            image_folder_base = '/' + '/'.join(image_level_results_file.replace('My_Passport','My Passport').\
+            image_folder_base = '/' + '/'.join(image_level_results_file.replace(
+                'My_Passport','My Passport').\
                                          split('_')[0:4])
         
         assert os.path.isdir(image_folder_base)
@@ -459,8 +463,10 @@ if False:
                 
         image_level_results_file_absolute = os.path.join(image_level_results_base,
                                                          image_level_results_file)
-        image_html_files = patch_level_preview(image_level_results_file_absolute,image_folder_base,preview_folder,
-                                n_patches=n_patches,preview_confidence_thresholds=preview_confidence_thresholds)
+        image_html_files = patch_level_preview(image_level_results_file_absolute,
+                                               image_folder_base,preview_folder,
+                                               n_patches=n_patches,
+                                               preview_confidence_thresholds=preview_confidence_thresholds)
         html_files.extend(image_html_files)
     
     # ...for each results file
