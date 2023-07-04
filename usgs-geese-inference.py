@@ -81,8 +81,8 @@ default_inference_conf_thres = '0.001'
 default_inference_batch_size = 8
 image_size = 1280
 
-# Right now, for debuggin, we run inference with a low confidence threshold, but after
-# inference, we strip out very-low-confidence detections
+# Right now, for debugging, we run inference with a low confidence threshold, but after
+# inference, we strip out very-low-confidence detections.
 post_inference_conf_thres = 0.025
 
 n_cores_patch_generation = 16
