@@ -19,24 +19,18 @@
 
 """
 
-* Adjust hyperparameters (increase augmentation, match MDv5 parameters)
+* Play with hyperparameters
 
 https://github.com/agentmorris/MegaDetector/blob/main/detection/detector_training/experiments/megadetector_v5_yolo/hyp_mosaic.yml
 
 https://github.com/agentmorris/MegaDetector/tree/main/detection#training-with-yolov5
 
-* Add hard negative patches, and/or mine for hard negative images
-
-* Tinker with box size
-
-* Tinker with test-time augmentation
-
 * Try smaller YOLOv5's
 
 * Try 1280px YOLOv8 when it's available
 
-* Try fancier patch sampling to minimize the number of birds that are split across
-  patches.
+* Try fancier patch sampling to minimize the number of patches that still capture 
+  all of the training examples.  (to get more examples per unit of training time).
 
 """
 
@@ -313,6 +307,7 @@ DATA_FOLDER="/home/user/data/usgs-geese"
 
 python val.py --img 1280 --batch-size 8 --weights ${MODEL_FILE} --project usgs-geese --name ${TRAINING_RUN_NAME} --data ${DATA_FOLDER}/dataset.yaml 
 """
+
 pass
 
 
