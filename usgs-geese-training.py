@@ -371,7 +371,7 @@ for prediction_file in prediction_files:
 
 postprocessing_output_folder = os.path.expanduser('~/tmp/usgs-geese-previews')
 
-import path_utils
+from md_utils import path_utils
 
 from api.batch_processing.postprocessing.postprocess_batch_results import (
     PostProcessingOptions, process_batch_results)
