@@ -2,7 +2,7 @@
 
 ### Overview
 
-The code in this repo trains and evaluates models to detect geese in aerial images, based on the <a href="https://www.usgs.gov/data/aerial-photo-imagery-fall-waterfowl-surveys-izembek-lagoon-alaska-2017-2019">Izembek Lagoon dataset</a>.  Images are annotated with points, labeled as brant, Canada, gull, emperor, and other.  The goal is accuacy on brant, which is by far the most common class (there are around 400k "brant" points, and less than 100k of everything else combined).
+The code in this repo trains and evaluates models to detect geese in aerial images, based on the <a href="https://www.usgs.gov/data/aerial-photo-imagery-fall-waterfowl-surveys-izembek-lagoon-alaska-2017-2019">Izembek Lagoon dataset</a>.  Images are annotated with points, labeled as brant, Canada, gull, emperor, and other.  The goal is accuracy on brant, which is by far the most common class (there are around 400k "brant" points, and less than 100k of everything else combined).
 
 There are around 100,000 images total, about 95% of which contain no geese.  Images are 8688 x 5792.  A typical ground truth image looks like this:
 
@@ -12,11 +12,17 @@ The annotations you can vaguely see as different colors correspond to different 
 
 <img src="annotated_patch.png" width="800px;"><br/>
 
+### Sample results
+
 Here's a random patch of predictions, but you should <i>never</i> put any stock into a "random" image of results that someone shows you on the Internet:
 
 <img src="sample_results_patch.jpg" width="800px;"><br/>
 
 Maybe all the results really look like that, maybe they don't.  I pinky-swear that the image from which this patch was cropped was not used in training, and that in general the results really do look like this, but... never trust random results on the Internet.
+
+If you want to dig a little deeper, here is a set of patch-level previews for validation data (patches selected from images excluded from training, but from flights that were included in training) or test data (patches selected from flights that were excluded from training):
+
+<https://lila.science/public/usgs-izembek-results/>
 
 ### Files
 
