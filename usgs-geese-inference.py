@@ -1269,7 +1269,7 @@ if False:
     
     input_folder_base = '/media/user/My Passport/2022-10-09/cam3'
     md_results_image_level_nms_fn = os.path.expanduser(
-        '~/tmp/usgs-inference/image_level_results/'+\
+        '~/tmp/usgs-inference/image_level_results/'+ \
         'media_user_My_Passport_2022-10-09_cam3_md_results_image_level_nms.json')
     
     with open(md_results_image_level_nms_fn,'r') as f:
