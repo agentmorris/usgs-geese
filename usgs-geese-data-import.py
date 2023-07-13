@@ -129,7 +129,6 @@ for fn in image_files_relative:
 print('No annotations available for {} of {} images'.format(
     len(images_without_annotations),len(image_files_relative)))
 
-
 if False:
     sample_image = os.path.join(image_folder,list(images_with_annotations)[0])
     path_utils.open_file(sample_image)
