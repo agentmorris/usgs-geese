@@ -852,7 +852,6 @@ def run_model_on_folder(input_folder_base,recursive=True):
     
     md_formatted_results_file_for_folder_thresholded = md_formatted_results_file_for_folder.replace(
         '.json','_threshold_{}.json'.format(post_inference_conf_thres))
-
     
     with open(md_formatted_results_file_for_folder,'r') as f:
         d_before_thresholding = json.load(f)

@@ -21,11 +21,14 @@ import pandas as pd
 
 from tqdm import tqdm
 
-from visualization import visualization_utils as visutils
+from md_visualization import visualization_utils as visutils
 
 output_json_file = os.path.expanduser('~/data/usgs_geese.json')
 
-base_folder = '/media/user/My Passport/2017-2019'
+images_without_annotations_file = os.path.expanduser('~/data/usgs-geese/images_without_annotations.txt')
+csv_files_without_images_file = os.path.expanduser('~/data/usgs-geese/csv_files_without_images.txt')
+
+base_folder = '/media/user/My Passport1/2017-2019'
 image_folder = os.path.join(base_folder,'01_JPGs')
 annotations_folder = os.path.join(base_folder,'03_Manually_corrected_annotations')
 
@@ -131,6 +134,15 @@ if False:
     sample_image = os.path.join(image_folder,list(images_with_annotations)[0])
     path_utils.open_file(sample_image)
 
+# Write out the lists of images and .csv files we couldn't match
+with open(images_without_annotations_file,'w') as f:
+    for s in images_without_annotations:
+        f.write(s + '\n')
+
+with open(csv_files_without_images_file,'w') as f:
+    for s in csv_files_without_images:
+        f.write(s + '\n')
+        
 
 #%% Remove some candidates from the list of possible hard negatives
 
