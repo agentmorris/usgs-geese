@@ -38,7 +38,7 @@ from tqdm import tqdm
 from md_visualization import visualization_utils as visutils
 
 input_annotations_file = os.path.expanduser('~/data/usgs_geese.json')
-input_base_folder = '/media/user/My Passport/2017-2019'
+input_base_folder = '/media/user/My Passport1/2017-2019'
 input_image_folder = os.path.join(input_base_folder,'01_JPGs')
 
 debug_max_image = -1
@@ -58,6 +58,9 @@ md_class_mapping_file = os.path.join(output_dir,'usgs-geese-md-class-mapping.jso
 # Just the train/val subsets
 yolo_train_dir = os.path.join(output_dir,'yolo_train')
 yolo_val_dir = os.path.join(output_dir,'yolo_val')
+
+train_image_id_list_file = os.path.join(output_dir,'train_images.json')
+val_image_id_list_file = os.path.join(output_dir,'val_images.json')
 
 patch_size = [1280,1280]
 
@@ -85,7 +88,7 @@ class_file_names = ['object.data','classes.txt']
 # This will store a mapping from patches back to the original images
 patch_metadata_file = 'patch_metadata.json'
 
-val_image_fraction = 0.2
+val_image_fraction = 0.15
 
 # If we have N images with annotations, we will choose hard_negative_fraction * N
 # hard negatives, and from each of those we'll choose a number of patches equal to the
@@ -167,10 +170,7 @@ category_name_to_id = {c['name']:c['id'] for c in d['categories']}
 category_ids_to_exclude = []
 for s in category_names_to_exclude:
     if s in category_name_to_id:
-        category_ids_to_exclude.append(category_name_to_id[s])
-    else:
-        print("Warning: I'm supposed to ignore category {}, but this .json file doesn't"
-              "have that category".format(s))
+        category_ids_to_exclude.append(category_name_to_id[s])    
 
 
 #%% Make sure all images are the same size
@@ -225,6 +225,8 @@ assert patch_start_positions[-1][1]+patch_size[1] == image_height
 
 #%% Create YOLO-formatted patches
 
+# Currently takes about 1.5 hours
+
 # TODO: this is trivially parallelizable
 
 # This will be a dict mapping patch names (YOLO files without the extension)
@@ -247,7 +249,7 @@ def relative_path_to_image_name(rp):
 def patch_info_to_patch_name(image_name,patch_x_min,patch_y_min):
     patch_name = image_name + '_' + str(patch_x_min).zfill(4) + '_' + str(patch_y_min).zfill(4)
     return patch_name
-    
+
 # i_image = 0; im = d['images'][0]
 for i_image,im in tqdm(enumerate(d['images']),total=len(d['images'])):
 
@@ -333,6 +335,8 @@ for i_image,im in tqdm(enumerate(d['images']),total=len(d['images'])):
         
         # ...for each annotation
         
+        del ann
+        
         # Don't write out patches with no matching annotations
         if len(patch_box_centers) == 0:
             continue
@@ -343,6 +347,9 @@ for i_image,im in tqdm(enumerate(d['images']),total=len(d['images'])):
         patch_image_fn = os.path.join(dest_image_folder,patch_name + '.jpg')
         patch_ann_fn = os.path.join(dest_txt_folder,patch_name + '.txt')
         
+        assert not os.path.isfile(patch_image_fn)
+        assert not os.path.isfile(patch_ann_fn)
+        
         # Write out patch image
         if (do_tile_writes):
             patch_im.save(patch_image_fn,quality=patch_jpeg_quality)
@@ -351,11 +358,11 @@ for i_image,im in tqdm(enumerate(d['images']),total=len(d['images'])):
         
         yolo_boxes_this_patch = []
         
-        # xy = patch_boxes[0]
-        for xy in patch_box_centers:
+        # xyc = patch_boxes[0]
+        for xyc in patch_box_centers:
             
-            x_center_absolute_original = xy[0]
-            y_center_absolute_original = xy[1]
+            x_center_absolute_original = xyc[0]
+            y_center_absolute_original = xyc[1]
             box_w_absolute = box_size[0]
             box_h_absolute = box_size[1]
             
@@ -410,7 +417,7 @@ for i_image,im in tqdm(enumerate(d['images']),total=len(d['images'])):
             # ...if we're clipping boxes
             
             # YOLO annotations are category x_center y_center w h
-            yolo_box = [ann['category_id'],
+            yolo_box = [xyc[2],
                         x_center_relative, y_center_relative, 
                         box_w_relative, box_h_relative]
             yolo_boxes_this_patch.append(yolo_box)
@@ -424,7 +431,8 @@ for i_image,im in tqdm(enumerate(d['images']),total=len(d['images'])):
             'patch_y_min':patch_y_min,
             'patch_x_max':patch_x_max,
             'patch_y_max':patch_y_max,
-            'hard_negative':False
+            'hard_negative':False,
+            'box_centers':patch_box_centers
             }
                     
         patch_metadata_mapping[patch_name] = patch_metadata
@@ -448,7 +456,7 @@ assert len(image_ids_with_annotations) == len(set(image_ids_with_annotations))
 
 n_images_with_annotations = len(image_ids_with_annotations)
 
-print('Processed {} boxes ({} clipped) ({} excluded) from {} patches on {} images'.format(
+print('\nProcessed {} boxes ({} clipped) ({} excluded) from {} patches on {} images'.format(
     n_boxes,n_clipped_boxes,n_excluded_boxes,n_patches,n_images_with_annotations))
 
 annotated_image_ids = set([p['original_image_id'] for p in patch_metadata_mapping.values()])
@@ -563,7 +571,7 @@ for image_fn_relative in tqdm(hard_negative_source_images):
 # ...for each hard negative image    
 
 
-#%% Measure folder size
+#%% Estimate output folder size
 
 import humanfriendly
 from pathlib import Path
@@ -598,12 +606,32 @@ all_image_ids = list(all_image_ids)
 
 n_val_image_ids = int(val_image_fraction*len(all_image_ids))
 
-# This call to random.seed() was added *after* the original train/val split.
+# This call to random.seed() was added *after* the original train/val split for the v0
+# model, so I don't know that we reliably re-create that split (though we saved it).
 random.seed(0)
 val_image_ids = random.sample(all_image_ids,k=n_val_image_ids)
 
 
+#%% Write out train/val image ID lists
+
+val_image_ids = list(val_image_ids)
+val_image_ids_set = set(val_image_ids)
+
+train_image_ids = []
+for image_id in all_image_ids:
+    if image_id not in val_image_ids_set:
+        train_image_ids.append(image_id)
+
+with open(train_image_id_list_file,'w') as f:
+    json.dump(train_image_ids,f,indent=1)
+    
+with open(val_image_id_list_file,'w') as f:
+    json.dump(val_image_ids,f,indent=1)
+
+
 #%% Copy images to train/val folders
+
+# Takes ~2 mins
 
 train_patch_names = []
 val_patch_names = []
@@ -669,9 +697,12 @@ with open(yolo_dataset_file,'w') as f:
         f.write('  {}: {}\n'.format(i_class,class_name))
 
 
-#%% Prepare simlinks for BoundingBoxEditor
+#%% Prepare symlinks for BoundingBoxEditor
 
-# ...so it can appear that images and labels are in separate folders
+# ...so it can appear that images and labels are in separate folders, 
+# currently required as per:
+#
+# https://github.com/mfl28/BoundingBoxEditor/issues/67
 
 def safe_create_link(link_exists,link_new):
     
@@ -705,7 +736,7 @@ def create_virtual_yolo_dirs(yolo_base_dir):
     link_new = os.path.join(labels_dir,'object.data')
     safe_create_link(link_exists,link_new)
 
-# Only do this for the "all" dir!  Doing this in the training and val dirs 
+# Only create symlinks for the "all" dir!  Doing this in the training and val dirs 
 # impacts training.
 
 create_virtual_yolo_dirs(yolo_all_dir)

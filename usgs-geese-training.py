@@ -93,8 +93,7 @@ IMAGE_SIZE=1280
 EPOCHS=200
 DATA_YAML_FILE=/home/user/data/usgs-geese/dataset.yaml
 
-# TRAINING_RUN_NAME=usgs-geese-yolov5x-b${BATCH_SIZE}-img${IMAGE_SIZE}-e${EPOCHS}
-TRAINING_RUN_NAME=usgs-geese-yolov5x-nolinks-b${BATCH_SIZE}-img${IMAGE_SIZE}-e${EPOCHS}
+TRAINING_RUN_NAME=usgs-geese-yolov5x-230820-b${BATCH_SIZE}-img${IMAGE_SIZE}-e${EPOCHS}
 
 python train.py --img ${IMAGE_SIZE} --batch ${BATCH_SIZE} --epochs ${EPOCHS} --weights yolov5x6.pt --device 0,1 --project usgs-geese --name ${TRAINING_RUN_NAME} --data ${DATA_YAML_FILE}
 """

@@ -94,7 +94,7 @@ overwrite_md_results_files = False
 
 devices = [0,1]
 
-patch_jpeg_quality = 95    
+patch_jpeg_quality = 95
 
 default_patch_overlap = 0.1
 
