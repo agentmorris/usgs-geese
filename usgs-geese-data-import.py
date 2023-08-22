@@ -208,6 +208,8 @@ print('Marked {} images as possibly-not-empty'.format(len(images_that_might_not_
 
 #%% Build up COCO-formatted dataset
 
+# Takes ~10 minutes
+
 # Along the way, verify that the .csv files and .json files agree with each other
 
 def isnan(v):
@@ -273,6 +275,7 @@ for i_file,csv_fn_relative in tqdm(enumerate(csv_files_relative),total=len(csv_f
     with open(json_fn,'r') as f:
         json_data = json.load(f)
         
+    # These are empty annotations
     if (os.path.getsize(csv_fn) <= 5):
         assert len(json_data) == 0
         empty_files.append(csv_fn)
@@ -381,7 +384,7 @@ for i_file,csv_fn_relative in tqdm(enumerate(csv_files_relative),total=len(csv_f
         ann['category_id'] = category_name_to_category_id[category_name]
         
         annotations.append(ann)
-        
+                
         n_annotations_this_file += 1
                 
     # ...for each annotation in this file
@@ -391,7 +394,13 @@ for i_file,csv_fn_relative in tqdm(enumerate(csv_files_relative),total=len(csv_f
         
 # ...for each file
 
-##%% Write COCO .json file
+print('Found annotations for {} files ({} empty annotation files)'.format(
+    len(image_id_to_image),len(empty_files)))
+
+empty_annotation_files_relative = [os.path.relpath(fn,annotations_folder) for fn in empty_files]
+
+
+#%% Write COCO .json file
 
 images = list(image_id_to_image.values())
 
@@ -416,6 +425,7 @@ d['annotations'] = annotations
 d['categories'] = categories
 d['info'] = info 
 d['images_without_annotations'] = images_without_annotations
+d['empty_images'] = empty_annotation_files_relative
 d['images_that_might_not_be_empty'] = images_that_might_not_be_empty
 
 with open(output_json_file,'w') as f:

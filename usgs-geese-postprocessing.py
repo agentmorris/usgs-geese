@@ -415,8 +415,8 @@ if False:
     
     #%% Preview
     
-    n_patches = 2000
-    preview_confidence_thresholds = [0.625]
+    n_patches = 2500
+    preview_confidence_thresholds = [0.45, 0.5, 0.55, 0.6]
     image_level_results_base = os.path.expanduser('~/tmp/usgs-inference/image_level_results')
     
     # Use this to specify non-default image folder bases for individual files
@@ -437,6 +437,8 @@ if False:
     
     preview_folder_base = os.path.expanduser('~/tmp/usgs-inference/preview')    
     
+    image_level_results_filenames = [fn for fn in image_level_results_filenames if \
+                                     ('2022-10' in fn)]
     html_files = []
     
     # TODO: parallelize this loop
@@ -444,7 +446,7 @@ if False:
     # i_file = 0; image_level_results_file = image_level_results_filenames[i_file]
     for i_file,image_level_results_file in enumerate(image_level_results_filenames):
         
-        print('\Generating preview for file {} of {}'.format(
+        print('\Generating previews for file {} of {}'.format(
             i_file,len(image_level_results_filenames)))
         
         if image_level_results_file in result_file_to_folder_base:
@@ -456,6 +458,8 @@ if False:
             image_folder_base = '/' + '/'.join(image_level_results_file.replace(
                 'My_Passport','My Passport').\
                                          split('_')[0:4])
+        
+        image_folder_base = image_folder_base.replace('My Passport/','My Passport1/')
         
         assert os.path.isdir(image_folder_base)
     
