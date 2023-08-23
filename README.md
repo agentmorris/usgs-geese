@@ -200,6 +200,10 @@ python run-izembek-model.py [MODEL_LOCATION] [IMAGE_FOLDER] [YOLO_FOLDER] [SCRAT
 
 The "--no_use_symlinks" argument tells the script not to attempt symlink creation; currently this results in more temporary disk space usage.  Typically this is useful on Windows machines where you don't have admin privileges.
 
+You can see a full list of options by running:
+
+`python run-izembek-model.py --help`
+
 If you have a GPU, and it's being utilized correctly, near the beginning of the output, you should see:
 
 `GPU available: True`
