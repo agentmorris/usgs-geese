@@ -243,7 +243,8 @@ Weiser, E. L., Flint, P. L., Marks, D. K., Shults, B. S., Wilson, H. M., Thompso
 
 ## Major open items
 
-* Move this open items list to GitHub issues
-* Populate the "previewing the results" and "generating counts" sections in this README
+* Allow variable image sizes in postprocessing
+* Support postprocessing from the command line  
+* Populate the "previewing the results" and "generating counts" sections in this README 
 * Add checkpointing, currently you lose the whole result set if your job crashes
 * Clean up the extensive scratch space use, especially on Windows, where we create patches, then copy all of those patches

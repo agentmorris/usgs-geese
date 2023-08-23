@@ -191,14 +191,15 @@ if validate_against_dataset_file:
         for s in lines:
             if re.search(pat,s) is not None:
                 tokens = s.split(':')
-                assert len(tokens) == 2
+                assert len(tokens) == 2, 'Invalid token in category file {}'.format(fn)
                 to_return[int(tokens[0].strip())] = tokens[1].strip()
             
         return to_return
     
     dataset_definition_file = os.path.expanduser('~/data/usgs-geese/dataset.yaml')  
     yolo_category_id_to_name = read_classes_from_yolo_dataset_file(dataset_definition_file)
-    assert yolo_category_id_to_name == expected_yolo_category_id_to_name
+    assert yolo_category_id_to_name == expected_yolo_category_id_to_name, \
+        'Error validating YOLO category list'
 
 else:
     
@@ -279,8 +280,8 @@ def get_patch_boundaries(image_size,patch_size,patch_stride=None,allow_variable_
     # ...for each row
     
     if not allow_variable_image_size:
-        assert patch_start_positions[-1][0]+patch_size[0] == image_width
-        assert patch_start_positions[-1][1]+patch_size[1] == image_height
+        assert patch_start_positions[-1][0]+patch_size[0] == image_width, 'Illegal image size'
+        assert patch_start_positions[-1][1]+patch_size[1] == image_height, 'Illegal image size'
     
     return patch_start_positions
 
@@ -333,8 +334,8 @@ def extract_patch_from_image(im,patch_xy,
     #
     # So we add 1 to the max values.
     patch_im = pil_im.crop((patch_x_min,patch_y_min,patch_x_max+1,patch_y_max+1))
-    assert patch_im.size[0] == patch_size[0]
-    assert patch_im.size[1] == patch_size[1]
+    assert patch_im.size[0] == patch_size[0], 'Illegal patch size'
+    assert patch_im.size[1] == patch_size[1], 'Illegal patch size'
 
     if patch_image_fn is None:
         assert patch_folder is not None,\
@@ -388,8 +389,8 @@ def extract_patches_for_image(image_fn,patch_folder,image_name_base=None,
     
     pil_im = vis_utils.open_image(image_fn)
     if not allow_variable_image_size:
-        assert pil_im.size[0] == expected_image_width
-        assert pil_im.size[1] == expected_image_height
+        assert pil_im.size[0] == expected_image_width, 'Illegal image size'
+        assert pil_im.size[1] == expected_image_height, 'Illegal image size'
     
     image_width = pil_im.size[0]
     image_height = pil_im.size[1]
@@ -429,7 +430,7 @@ def generate_patches_for_image(image_fn_relative,patch_folder_base,input_folder_
     """
     
     image_fn = os.path.join(input_folder_base,image_fn_relative)    
-    assert os.path.isfile(image_fn)        
+    assert os.path.isfile(image_fn), 'Image file {} does not exist'.format(image_fn)
     patch_folder = os.path.join(patch_folder_base,image_fn_relative)        
     image_patch_info = extract_patches_for_image(image_fn,patch_folder,
                                                  input_folder_base,overwrite=overwrite,
@@ -502,7 +503,7 @@ def create_yolo_dataset_file(dataset_file,symlink_dir,yolo_category_id_to_name):
         f.write('\n')
         f.write('names:\n')
         for category_id in category_ids:
-            assert isinstance(category_id,int)
+            assert isinstance(category_id,int), 'Illegal category ID {}'.format(category_id)
             f.write('  {}: {}\n'.format(category_id,yolo_category_id_to_name[category_id]))
     
 
@@ -590,7 +591,7 @@ def in_place_nms(md_results, iou_thres=0.45, verbose=True):
         
         post_nms_detections = [im['detections'][x] for x in box_indices]
         
-        assert len(post_nms_detections) <= len(im['detections'])
+        assert len(post_nms_detections) <= len(im['detections']), 'NMS validation error'
         
         im['detections'] = post_nms_detections
         
@@ -712,7 +713,8 @@ def run_model_on_folder(input_folder_base,inference_options=None):
         n_patches_per_image = len(get_patch_boundaries(
             (expected_image_width,expected_image_height),
             patch_size,patch_stride=None))
-        assert len(all_patch_files) == n_patches_per_image * len(images_relative)
+        assert len(all_patch_files) == n_patches_per_image * len(images_relative), \
+            'Unexpected number of patches'
     
     
     ##%% Split patches into chunks (one per GPU), and generate symlink folder(s)
@@ -724,7 +726,8 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     # Split patches into chunks
     n_chunks = len(inference_options.devices)
     patch_chunks = split_list(all_patch_files,n_chunks)
-    assert sum([len(p) for p in patch_chunks]) == len(all_patch_files)
+    assert sum([len(p) for p in patch_chunks]) == len(all_patch_files), \
+        'Unexpected number of patch chunks'
     
     chunk_info = []
     
@@ -742,7 +745,8 @@ def run_model_on_folder(input_folder_base,inference_options=None):
                                                                    chunk_symlink_dir,
                                                                    inference_options)
         chunk_symlinks = os.listdir(chunk_symlink_dir)
-        assert len(chunk_symlinks) == len(chunk_patch_id_to_file)
+        assert len(chunk_symlinks) == len(chunk_patch_id_to_file), \
+            'Unexpected number of patch files'
         
         chunk = {'chunk_id':'chunk_{}'.format(str(i_chunk).zfill(2)),
                            'symlink_dir':chunk_symlink_dir,
@@ -859,7 +863,8 @@ def run_model_on_folder(input_folder_base,inference_options=None):
        
           results = list(pool.map(run_chunk,chunk_commands))
           
-          assert all([r['status'] == 0 for r in results]), 'Error running one or more inference processes'
+          assert all([r['status'] == 0 for r in results]), \
+              'Error running one or more inference processes'
           
     else:
     
@@ -877,7 +882,7 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     for i_chunk,chunk in enumerate(chunk_info):
         
         run_dir = chunk['run_output_dir']
-        assert os.path.isdir(run_dir)
+        assert os.path.isdir(run_dir), 'Output folder {} does not exist'.format(run_dir)
         
         json_files = glob.glob(run_dir + '/*.json')
         json_files = [fn for fn in json_files if 'md_format' not in fn]
@@ -888,7 +893,7 @@ def run_model_on_folder(input_folder_base,inference_options=None):
         
         md_formatted_results_file = yolo_json_file.replace('.json','-md_format.json')
         chunk['md_formatted_results_file'] = md_formatted_results_file
-        assert md_formatted_results_file != yolo_json_file
+        assert md_formatted_results_file != yolo_json_file, '.json file ambiguity error'
             
         if os.path.isfile(md_formatted_results_file) and (not overwrite_md_results_files):
             
@@ -912,7 +917,7 @@ def run_model_on_folder(input_folder_base,inference_options=None):
             # i_patch = 0; patch_id = next(iter(chunk['patch_id_to_file'].keys()))
             for patch_id in chunk['patch_id_to_file'].keys():
                 fn = chunk['patch_id_to_file'][patch_id]
-                assert patch_folder_for_folder in fn
+                assert patch_folder_for_folder in fn, 'Patch lookup error'
                 relative_fn = os.path.relpath(fn,patch_folder_for_folder)
                 patch_id_to_relative_path[patch_id] = relative_fn
                         
@@ -940,7 +945,8 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     _ = combine_api_outputs.combine_api_output_files(md_formatted_results_files_for_chunks,
                                                  md_formatted_results_file_for_folder,
                                                  require_uniqueness=True)
-    assert os.path.isfile(md_formatted_results_file_for_folder)
+    assert os.path.isfile(md_formatted_results_file_for_folder), \
+        'Results file {} does not exist'.format(md_formatted_results_file_for_folder)
     
     
     ##%% Remove low-confidence detections
@@ -991,7 +997,8 @@ def run_model_on_folder(input_folder_base,inference_options=None):
         
         patch_results_after_nms_file = md_formatted_results_file_for_folder_thresholded.replace('.json',
                                                                       '_patch-level_nms.json')
-        assert patch_results_after_nms_file != md_formatted_results_file_for_folder_thresholded
+        assert patch_results_after_nms_file != md_formatted_results_file_for_folder_thresholded, \
+            'Results file naming convention error'        
         
         with open(patch_results_after_nms_file,'w') as f:
             json.dump(md_results,f,indent=1)
@@ -1036,11 +1043,14 @@ def run_model_on_folder(input_folder_base,inference_options=None):
             
         pil_im = vis_utils.open_image(image_fn)
         if not inference_options.allow_variable_image_size:
-            assert pil_im.size[0] == expected_image_width
-            assert pil_im.size[1] == expected_image_height
+            assert pil_im.size[0] == expected_image_width, 'Illegal image size'
+            assert pil_im.size[1] == expected_image_height, 'Illegal image size'
         
         image_w = pil_im.size[0]
         image_h = pil_im.size[1]
+        
+        output_im['w'] = image_w
+        output_im['h'] = image_h
         
         image_patch_info = image_fn_to_patch_info[image_fn]
         assert image_patch_info['patches'][0]['image_fn'] == image_fn, 'Image/patch mapping error'
@@ -1059,12 +1069,12 @@ def run_model_on_folder(input_folder_base,inference_options=None):
             patch_info = patch_fn_to_patch_info_this_image[patch_fn]
             
             # patch_results['file'] is a relative path, and a subset of patch_info['patch_fn']
-            assert patch_results['file'] in patch_info['patch_fn']
+            assert patch_results['file'] in patch_info['patch_fn'], 'Patch results lookup error'
             
             patch_w = (patch_info['xmax'] - patch_info['xmin']) + 1
             patch_h = (patch_info['ymax'] - patch_info['ymin']) + 1
-            assert patch_w == patch_size[0]
-            assert patch_h == patch_size[1]
+            assert patch_w == patch_size[0], 'Illegal patch size'
+            assert patch_h == patch_size[1], 'Illegal patch size'
             
             # det = patch_results['detections'][0]
             for det in patch_results['detections']:
@@ -1175,7 +1185,7 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     if 'dataset_files' in inference_options.cleanup_targets:
         if os.path.isdir(folder_dataset_file_dir):
             dataset_files = os.listdir(folder_dataset_file_dir)
-            assert all([fn.endswith('.yaml') for fn in dataset_files])
+            assert all([fn.endswith('.yaml') for fn in dataset_files]), 'dataset file lookup error'
             safe_delete(folder_dataset_file_dir)        
     else:
         print('Bypassing cleanup of dataset files')
@@ -1190,7 +1200,8 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     if 'inference_scripts' in inference_options.cleanup_targets:
         if os.path.isdir(folder_inference_script_dir):
             inference_scripts = os.listdir(folder_inference_script_dir)
-            assert all([(fn.endswith('.sh') or fn.endswith('.bat')) for fn in inference_scripts])
+            assert all([(fn.endswith('.sh') or fn.endswith('.bat')) for fn in inference_scripts]), \
+                'Inference script not found'
             safe_delete(folder_inference_script_dir)
     else:
         print('Bypassing cleanup of inference scripts')
@@ -1214,7 +1225,8 @@ def run_model_on_folder(input_folder_base,inference_options=None):
         if os.path.isdir(folder_symlink_dir):
             # These are either folders called "chunk_00" or yolov5 cache files called "chunk_00.cache"
             symlink_folders_and_cache_files = os.listdir(folder_symlink_dir)
-            assert all([fn.startswith('chunk') for fn in symlink_folders_and_cache_files])
+            assert all([fn.startswith('chunk') for fn in symlink_folders_and_cache_files]), \
+                'symlink folder validation error during cleanup'
             safe_delete(folder_symlink_dir)
     else:
         print('Bypassing cleanup of symlink folder')
@@ -1222,8 +1234,10 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     if 'yolo_results' in inference_options.cleanup_targets:
         if os.path.isdir(folder_yolo_results_dir):
             yolo_results_folders = os.listdir(folder_yolo_results_dir)
-            assert all([os.path.isdir(os.path.join(folder_yolo_results_dir,fn)) for fn in yolo_results_folders])
-            assert all([fn.startswith('inference-output') for fn in yolo_results_folders])
+            assert all([os.path.isdir(os.path.join(folder_yolo_results_dir,fn)) for fn in yolo_results_folders]), \
+                'YOLO results folder validation error during cleanup'
+            assert all([fn.startswith('inference-output') for fn in yolo_results_folders]), \
+                'Inference output folder validation error during cleanup'
             safe_delete(folder_yolo_results_dir)
     else:
         print('Bypassing cleanup of YOLO-formatted results')              

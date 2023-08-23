@@ -64,8 +64,11 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
     if preview_confidence_thresholds is None:
         preview_confidence_thresholds = default_preview_confidence_thresholds
         
-    assert os.path.isfile(image_level_results_file)
-    assert os.path.isdir(image_folder_base)
+    assert os.path.isfile(image_level_results_file), \
+        'Results file {} does not exist'.format(image_level_results_file)
+    assert os.path.isdir(image_folder_base), \
+        'Image folder {} does not exist'.format(image_folder_base)
+        
     os.makedirs(preview_folder,exist_ok=True)
     
     with open(image_level_results_file,'r') as f:
@@ -91,7 +94,7 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
         detections_absolute = []
         # det = im['detections'][0]
         for det in im['detections']:
-            assert 'bbox' in det and len(det['bbox']) == 4
+            assert 'bbox' in det and len(det['bbox']) == 4, 'Results file validation error'
             bbox_absolute = [
                 det['bbox'][0] * image_size[0],
                 det['bbox'][1] * image_size[1],
@@ -105,7 +108,8 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
             detections_absolute.append(det_absolute)
         
         im['detections_absolute'] = detections_absolute
-        assert len(im['detections_absolute']) == len(im['detections'])
+        assert len(im['detections_absolute']) == len(im['detections']), \
+            'Results file conversion error'
         
     # ...for each image        
     
@@ -143,7 +147,8 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
     
         image_fn_relative = patch[0]
         image_fn_absolute = os.path.join(image_folder_base,image_fn_relative)
-        assert os.path.isfile(image_fn_absolute)
+        assert os.path.isfile(image_fn_absolute), \
+            'Image {} does not exist'.format(image_fn_absolute)
         patch_xy = patch[1]
         
         # Generate a usable filename for this patch
@@ -314,7 +319,8 @@ def image_level_counting(image_level_results_file,
     
     # Make sure images are unique
     image_filenames = [im['file'] for im in image_level_results['images']]
-    assert len(image_filenames) == len(set(image_filenames))
+    assert len(image_filenames) == len(set(image_filenames)), \
+        'Image uniqueness error'
     
     category_names = image_level_results['detection_categories'].values()
     category_names = [s.lower() for s in category_names]
@@ -351,7 +357,8 @@ def image_level_counting(image_level_results_file,
             image_path_drive_relative = os.path.join(image_name_prefix,image_path_prefix_relative)
         
         image_path_absolute = os.path.join(drive_root_path,image_path_drive_relative)
-        assert os.path.isfile(image_path_absolute)
+        assert os.path.isfile(image_path_absolute), \
+            'Image file {} does not exist'.format(image_path_absolute)
         
         for confidence_threshold_set in counting_confidence_thresholds:
             
@@ -367,8 +374,10 @@ def image_level_counting(image_level_results_file,
                     category_id_to_threshold[cat_id] = confidence_threshold_set
             # Otherwise this should map category *names* (not IDs) to thresholds
             else:
-                assert isinstance(confidence_threshold_set,dict)
-                assert len(category_name_to_id) == len(confidence_threshold_set)
+                assert isinstance(confidence_threshold_set,dict), \
+                    'Counting threshold input error'
+                assert len(category_name_to_id) == len(confidence_threshold_set), \
+                    'Counting threshold category error'
                 for category_name in category_name_to_id:
                     assert category_name in confidence_threshold_set, \
                         'No threshold mapping for category {}'.format(category_name)
@@ -461,7 +470,8 @@ if False:
         
         image_folder_base = image_folder_base.replace('My Passport/','My Passport1/')
         
-        assert os.path.isdir(image_folder_base)
+        assert os.path.isdir(image_folder_base), \
+            'Image folder {} does not exist'.format(image_folder_base)
     
         preview_folder = os.path.join(preview_folder_base,
                                       os.path.splitext(os.path.basename(image_level_results_file))[0])
