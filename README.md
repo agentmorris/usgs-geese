@@ -64,6 +64,10 @@ These are listed in roughly the order in which you would use them.
 * Generate patch-level previews from image-level model results
 * Generate estimated image-level bird counts from image-level model results (and write to .csv)
 
+#### run_izembek_model.py
+
+This is the main command-line entry point for inference; this is basically a command-line driver for usgs-geese-inference.py.
+
 
 ## Running the model
 
