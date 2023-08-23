@@ -2,9 +2,12 @@
 #
 # usgs-geese-inference.py
 #
-# Run inference on a folder of images, by breaking each image into overlapping 
-# 1280x1280 patches, running the model on each patch, and eliminating redundant
-# boxes from the results.
+# This is a module that runs inference on a folder of images, by breaking each 
+# image into overlapping  1280x1280 patches, running the model on each patch, and 
+# eliminating redundant boxes from the results.
+#
+# This module does not have a command-line driver; see run-izembek-model.py for
+# command-line inference.
 #
 # TODO:
 #
@@ -46,40 +49,17 @@ from md_visualization import visualization_utils as vis_utils
 from data_management.yolo_output_to_md_output import yolo_json_output_to_md_output
 from api.batch_processing.postprocessing import combine_api_outputs
 
+validate_against_dataset_file = False
+
 # We will explicitly verify that images are actually this size
 expected_image_width = 8688
 expected_image_height = 5792
 
 patch_size = (1280,1280)
 
-# Absolute paths
-project_dir = os.path.expanduser('~/tmp/usgs-inference')    
-yolo_working_dir = os.path.expanduser('~/git/yolov5-current')
-model_base = os.path.expanduser('~/models/usgs-geese')
-model_file = os.path.join(model_base,
-                          'usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt')
-
-dataset_definition_file = os.path.expanduser('~/data/usgs-geese/dataset.yaml')  
-
-assert os.path.isfile(model_file) and os.path.isdir(yolo_working_dir) and \
-    os.path.isfile(dataset_definition_file)
-
-# Derived paths
-project_symlink_dir = os.path.join(project_dir,'symlink_images')
-project_dataset_file_dir = os.path.join(project_dir,'dataset_files')
-project_patch_dir = os.path.join(project_dir,'patches')
-project_inference_script_dir = os.path.join(project_dir,'inference_scripts')
-project_yolo_results_dir = os.path.join(project_dir,'yolo_results')
-project_image_level_results_dir = os.path.join(project_dir,'image_level_results')
-project_chunk_cache_dir = os.path.join(project_dir,'chunk_cache')
-project_md_formatted_results_dir = os.path.join(project_dir,'md_formatted_results')
-
-
-# Threshold used for including results in the json file during inference
-default_inference_conf_thres = '0.001'
-
-default_inference_batch_size = 8
-image_size = 1280
+# The size at which to run inference... generally should be the same as the 
+# patch size.
+yolo_image_size = 1280
 
 # Right now, for debugging, we run inference with a low confidence threshold, but after
 # inference, we strip out very-low-confidence detections.
@@ -91,8 +71,6 @@ parallelize_patch_generation_with_threads = True
 force_patch_generation = False
 overwrite_existing_patches = False
 overwrite_md_results_files = False
-
-devices = [0,1]
 
 patch_jpeg_quality = 95
 
@@ -110,16 +88,88 @@ nms_iou_threshold = 0.45
 # boxes are assigned to multiple classes.
 do_within_patch_nms = False
 
-# What things should we clean up at the end of the process for a folder?
-cleanup_targets = ['patch_cache_file','dataset_files','symlink_images','yolo_results','inference_scripts',
-                   'chunk_cache_file']
-cleanup_targets.extend(['patches','patch_level_results'])
-# cleanup_targets.extend(['image_level_results'])
+# Threshold used for including results in the json file during inference
+default_inference_conf_thres = '0.001'
+    
+default_inference_batch_size = 8
+
+# Useful defaults on my training machine
+default_project_dir = os.path.expanduser('~/tmp/usgs-inference')    
+default_yolo_working_dir = os.path.expanduser('~/git/yolov5-current')
+default_model_base = os.path.expanduser('~/models/usgs-geese')
+default_model_file = os.path.join(default_model_base,
+                          'usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt')
+
+default_devices = [0]
+
+# OS-specific script line continuation character, comment character, and script extension
+if os.name == 'nt':
+    slcc = '^'
+    scc = 'REM'
+    script_extension = '.bat'
+else:
+    slcc = '\\'
+    scc = '#' 
+    script_extension = '.sh'
 
 
-#%% Validate class names
+#%% Options management
 
-expected_yolo_category_id_to_name = {
+class USGSGeeseInferenceOptions:
+                
+    def __init__(self, project_dir=None,yolo_working_dir=None,model_file=None,
+                 devices=None,recursive=True,allow_variable_image_size=True,
+                 use_symlinks=True,no_cleanup=False):
+    
+        if project_dir is None:
+            self.project_dir = default_project_dir
+        else:
+            self.project_dir = project_dir
+        
+        if yolo_working_dir is None:
+            self.yolo_working_dir = default_yolo_working_dir
+        else:
+            self.yolo_working_dir = yolo_working_dir
+        
+        if model_file is None:
+            self.model_file = default_model_file
+        else:
+            self.model_file = model_file
+        
+        if devices is None:
+            self.devices = default_devices
+        else:
+            self.devices = devices
+        
+        self.recursive = recursive
+        self.allow_variable_image_size = allow_variable_image_size
+        self.use_symlinks = use_symlinks
+        
+        # What things should we clean up at the end of the process for a folder?
+        self.cleanup_targets = ['patch_cache_file','dataset_files','symlink_images',
+                                'yolo_results','inference_scripts','chunk_cache_file',
+                                'patches','patch_level_results']
+        
+        if no_cleanup:
+            self.cleanup_targets = []
+
+        # Derived paths
+        self.project_symlink_dir = os.path.join(project_dir,'symlink_images')
+        self.project_dataset_file_dir = os.path.join(project_dir,'dataset_files')
+        self.project_patch_dir = os.path.join(project_dir,'patches')
+        self.project_inference_script_dir = os.path.join(project_dir,'inference_scripts')
+        self.project_yolo_results_dir = os.path.join(project_dir,'yolo_results')
+        self.project_image_level_results_dir = os.path.join(project_dir,'image_level_results')
+        self.project_chunk_cache_dir = os.path.join(project_dir,'chunk_cache')
+        self.project_md_formatted_results_dir = os.path.join(project_dir,'md_formatted_results')
+
+
+#%% Validate class names if requested
+
+# It's only really useful to do this on the training machine
+
+expected_yolo_category_id_to_name = \
+{
     0: 'Brant',
     1: 'Other',
     2: 'Gull',
@@ -127,26 +177,33 @@ expected_yolo_category_id_to_name = {
     4: 'Emperor'
 }
 
-def read_classes_from_yolo_dataset_file(fn):
-
-    import re
-
-    with open(dataset_definition_file,'r') as f:
-        lines = f.readlines()
+if validate_against_dataset_file:
+    
+    def read_classes_from_yolo_dataset_file(fn):
+    
+        import re
+    
+        with open(dataset_definition_file,'r') as f:
+            lines = f.readlines()
+                
+        to_return = {}
+        pat = '\d+: .+'
+        for s in lines:
+            if re.search(pat,s) is not None:
+                tokens = s.split(':')
+                assert len(tokens) == 2
+                to_return[int(tokens[0].strip())] = tokens[1].strip()
             
-    to_return = {}
-    pat = '\d+: .+'
-    for s in lines:
-        if re.search(pat,s) is not None:
-            tokens = s.split(':')
-            assert len(tokens) == 2
-            to_return[int(tokens[0].strip())] = tokens[1].strip()
-        
-    return to_return
+        return to_return
+    
+    dataset_definition_file = os.path.expanduser('~/data/usgs-geese/dataset.yaml')  
+    yolo_category_id_to_name = read_classes_from_yolo_dataset_file(dataset_definition_file)
+    assert yolo_category_id_to_name == expected_yolo_category_id_to_name
 
-yolo_category_id_to_name = read_classes_from_yolo_dataset_file(dataset_definition_file)
-assert yolo_category_id_to_name == expected_yolo_category_id_to_name
-
+else:
+    
+    yolo_category_id_to_name = expected_yolo_category_id_to_name
+    
 # As far as I can tell, this model does not have the class names saved, so just noting to self
 # that I tried this:
 #
@@ -158,7 +215,7 @@ assert yolo_category_id_to_name == expected_yolo_category_id_to_name
 
 #%% Support functions
 
-def get_patch_boundaries(image_size,patch_size,patch_stride=None):
+def get_patch_boundaries(image_size,patch_size,patch_stride=None,allow_variable_image_size=True):
     """
     Get a list of patch starting coordinates (x,y) given an image size
     and a stride.  Stride defaults to half the patch size.
@@ -221,8 +278,9 @@ def get_patch_boundaries(image_size,patch_size,patch_stride=None):
     
     # ...for each row
     
-    assert patch_start_positions[-1][0]+patch_size[0] == image_width
-    assert patch_start_positions[-1][1]+patch_size[1] == image_height
+    if not allow_variable_image_size:
+        assert patch_start_positions[-1][0]+patch_size[0] == image_width
+        assert patch_start_positions[-1][1]+patch_size[1] == image_height
     
     return patch_start_positions
 
@@ -299,7 +357,8 @@ def extract_patch_from_image(im,patch_xy,
     return patch_info
 
                              
-def extract_patches_for_image(image_fn,patch_folder,image_name_base=None,overwrite=True):
+def extract_patches_for_image(image_fn,patch_folder,image_name_base=None,
+                              overwrite=True,allow_variable_image_size=True):
     """
     Extract patches from image_fn to separate image files in patch_folder.
     
@@ -328,13 +387,15 @@ def extract_patches_for_image(image_fn,patch_folder,image_name_base=None,overwri
     image_name = relative_path_to_image_name(image_relative_path)
     
     pil_im = vis_utils.open_image(image_fn)
-    assert pil_im.size[0] == expected_image_width
-    assert pil_im.size[1] == expected_image_height
+    if not allow_variable_image_size:
+        assert pil_im.size[0] == expected_image_width
+        assert pil_im.size[1] == expected_image_height
     
     image_width = pil_im.size[0]
     image_height = pil_im.size[1]
     image_size = (image_width,image_height)
-    patch_start_positions = get_patch_boundaries(image_size,patch_size,patch_stride=None)
+    patch_start_positions = get_patch_boundaries(image_size,patch_size,patch_stride=None,
+                                                 allow_variable_image_size=allow_variable_image_size)
     
     patches = []
     
@@ -358,7 +419,8 @@ def extract_patches_for_image(image_fn,patch_folder,image_name_base=None,overwri
 # ...extract_patches_for_image()
     
 
-def generate_patches_for_image(image_fn_relative,patch_folder_base,input_folder_base,overwrite=True):
+def generate_patches_for_image(image_fn_relative,patch_folder_base,input_folder_base,
+                               overwrite=True,allow_variable_image_size=True):
     """
     Wrapper for extract_patches_for_image() that chooses a patch folder name based
     on the image name.
@@ -369,16 +431,25 @@ def generate_patches_for_image(image_fn_relative,patch_folder_base,input_folder_
     image_fn = os.path.join(input_folder_base,image_fn_relative)    
     assert os.path.isfile(image_fn)        
     patch_folder = os.path.join(patch_folder_base,image_fn_relative)        
-    image_patch_info = extract_patches_for_image(image_fn,patch_folder,input_folder_base,overwrite=overwrite)
+    image_patch_info = extract_patches_for_image(image_fn,patch_folder,
+                                                 input_folder_base,overwrite=overwrite,
+                                                 allow_variable_image_size=allow_variable_image_size)
     return image_patch_info
     
 
-def create_symlink_folder_for_patches(patch_files,symlink_dir):
+def create_symlink_folder_for_patches(patch_files,symlink_dir,inference_options=None):
     """
     Create a folder of symlinks pointing to patches, so we have a flat folder 
     structure that's friendly to the way YOLOv5's val.py works.  Returns a dict
     mapping patch IDs to files.
+    
+    On Windows, this requires admin permissions, so we use copying as a workaround for now.
+    The fact that this function is still called "create_symlink_..." suggests that
+    I see all of this as a temporary solution.
     """
+    
+    if inference_options is None:
+        inference_options = USGSGeeseInferenceOptions()
     
     os.makedirs(symlink_dir,exist_ok=True)
 
@@ -403,7 +474,10 @@ def create_symlink_folder_for_patches(patch_files,symlink_dir):
         patch_id_to_file[patch_id_string] = patch_fn
         symlink_name = patch_id_string + ext
         symlink_full_path = os.path.join(symlink_dir,symlink_name)
-        safe_create_link(patch_fn,symlink_full_path)
+        if inference_options.use_symlinks:
+            safe_create_link(patch_fn,symlink_full_path)
+        else:
+            shutil.copyfile(patch_fn,symlink_full_path)
         
     # ...for each image
     
@@ -432,7 +506,7 @@ def create_yolo_dataset_file(dataset_file,symlink_dir,yolo_category_id_to_name):
             f.write('  {}: {}\n'.format(category_id,yolo_category_id_to_name[category_id]))
     
 
-def run_yolo_model(project_dir,run_name,dataset_file,model_file,
+def run_yolo_model(project_dir,run_name,dataset_file,model_file,yolo_working_dir,
                    execute=True,augment=True,device_string='0',
                    batch_size=default_inference_batch_size,
                    conf_thres=default_inference_conf_thres):
@@ -446,7 +520,7 @@ def run_yolo_model(project_dir,run_name,dataset_file,model_file,
     run_dir = os.path.join(project_dir,run_name)
     os.makedirs(run_dir,exist_ok=True)    
     
-    image_size_string = str(round(image_size))
+    image_size_string = str(round(yolo_image_size))
             
     cmd = 'python val.py --data "{}"'.format(dataset_file)
     cmd += ' --weights "{}"'.format(model_file)
@@ -534,13 +608,16 @@ def in_place_nms(md_results, iou_thres=0.45, verbose=True):
 
 #%% The main function: run the model recursively on  folder
 
-def run_model_on_folder(input_folder_base,recursive=True):
+def run_model_on_folder(input_folder_base,inference_options=None):
     """
     Run the goose detection model on all images in a folder
     """
     
     ##%% Input validation
     
+    if inference_options is None:
+        inference_options = USGSGeeseInferenceOptions()
+        
     assert os.path.isdir(input_folder_base), \
         'Could not find input folder {}'.format(input_folder_base)
     
@@ -551,18 +628,21 @@ def run_model_on_folder(input_folder_base,recursive=True):
     
     ##%% Enumerate images
     
-    images_absolute = path_utils.find_images(input_folder_base,recursive=recursive)
+    images_absolute = path_utils.find_images(input_folder_base,
+                                             recursive=inference_options.recursive)
     images_relative = [os.path.relpath(fn,input_folder_base) for fn in images_absolute]    
     
 
     ##%% Generate patches
     
-    os.makedirs(project_chunk_cache_dir,exist_ok=True)
+    os.makedirs(inference_options.project_chunk_cache_dir,exist_ok=True)
 
     # This is a .json file that includes metadata about our patches; this is only used during
     # debugging, when we want to re-start from this point but don't want to re-generate patches
-    patch_cache_file = os.path.join(project_chunk_cache_dir,folder_name_clean + '_patch_info.json')
-    patch_folder_for_folder = os.path.join(project_patch_dir,folder_name_clean)
+    patch_cache_file = os.path.join(inference_options.project_chunk_cache_dir,
+                                    folder_name_clean + '_patch_info.json')
+    patch_folder_for_folder = os.path.join(inference_options.project_patch_dir,
+                                           folder_name_clean)
                                            
     if force_patch_generation or (not os.path.isfile(patch_cache_file)):
         
@@ -573,7 +653,8 @@ def run_model_on_folder(input_folder_base,recursive=True):
             # image_fn_relative = images_relative[0]
             for image_fn_relative in tqdm(images_relative):
                 image_patch_info = generate_patches_for_image(image_fn_relative,patch_folder_for_folder,
-                                                              input_folder_base)
+                                     input_folder_base,
+                                     allow_variable_image_size=inference_options.allow_variable_image_size)
                 all_image_patch_info.append(image_patch_info)
         else:                
             if parallelize_patch_generation_with_threads:
@@ -587,7 +668,8 @@ def run_model_on_folder(input_folder_base,recursive=True):
                 partial(generate_patches_for_image,
                         patch_folder_base=patch_folder_for_folder,
                         input_folder_base=input_folder_base,
-                        overwrite=overwrite_existing_patches), 
+                        overwrite=overwrite_existing_patches,
+                        allow_variable_image_size=inference_options.allow_variable_image_size), 
                 images_relative), total=len(images_relative)))
             
         all_patch_files = []
@@ -626,10 +708,11 @@ def run_model_on_folder(input_folder_base,recursive=True):
             all_patch_files.append(patch_info['patch_fn'])
             
     # Double-check that we have the right number of patches (n_images * n_patches_per_image)
-    n_patches_per_image = len(get_patch_boundaries(
-        (expected_image_width,expected_image_height),
-        patch_size,patch_stride=None))
-    assert len(all_patch_files) == n_patches_per_image * len(images_relative)
+    if not inference_options.allow_variable_image_size:
+        n_patches_per_image = len(get_patch_boundaries(
+            (expected_image_width,expected_image_height),
+            patch_size,patch_stride=None))
+        assert len(all_patch_files) == n_patches_per_image * len(images_relative)
     
     
     ##%% Split patches into chunks (one per GPU), and generate symlink folder(s)
@@ -639,13 +722,14 @@ def run_model_on_folder(input_folder_base,recursive=True):
         return list(L[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(n))
             
     # Split patches into chunks
-    n_chunks = len(devices)
+    n_chunks = len(inference_options.devices)
     patch_chunks = split_list(all_patch_files,n_chunks)
     assert sum([len(p) for p in patch_chunks]) == len(all_patch_files)
     
     chunk_info = []
     
-    folder_symlink_dir = os.path.join(project_symlink_dir,folder_name_clean)
+    folder_symlink_dir = os.path.join(inference_options.project_symlink_dir,
+                                      folder_name_clean)
                                       
     for i_chunk,chunk_files in enumerate(patch_chunks):
     
@@ -654,7 +738,9 @@ def run_model_on_folder(input_folder_base,recursive=True):
         print('Generating symlinks for chunk {} in folder {}'.format(
             i_chunk,chunk_symlink_dir))
     
-        chunk_patch_id_to_file = create_symlink_folder_for_patches(chunk_files,chunk_symlink_dir)
+        chunk_patch_id_to_file = create_symlink_folder_for_patches(chunk_files,
+                                                                   chunk_symlink_dir,
+                                                                   inference_options)
         chunk_symlinks = os.listdir(chunk_symlink_dir)
         assert len(chunk_symlinks) == len(chunk_patch_id_to_file)
         
@@ -669,7 +755,8 @@ def run_model_on_folder(input_folder_base,recursive=True):
     
     ##%% Generate .yaml files (to tell YOLO where the data is)
     
-    folder_dataset_file_dir = os.path.join(project_dataset_file_dir,folder_name_clean)
+    folder_dataset_file_dir = os.path.join(inference_options.project_dataset_file_dir,
+                                           folder_name_clean)
     os.makedirs(folder_dataset_file_dir,exist_ok=True)
     
     for i_chunk,chunk in enumerate(chunk_info):
@@ -681,23 +768,29 @@ def run_model_on_folder(input_folder_base,recursive=True):
         
     ##%% Prepare commands to run the model on symlink folder(s)
     
-    folder_inference_script_dir = os.path.join(project_inference_script_dir,folder_name_clean)
+    folder_inference_script_dir = os.path.join(inference_options.project_inference_script_dir,
+                                               folder_name_clean)
     os.makedirs(folder_inference_script_dir,exist_ok=True)
     
-    folder_yolo_results_dir = os.path.join(project_yolo_results_dir,folder_name_clean)
+    folder_yolo_results_dir = os.path.join(inference_options.project_yolo_results_dir,
+                                           folder_name_clean)
     os.makedirs(folder_yolo_results_dir,exist_ok=True)
     
     for i_chunk,chunk in enumerate(chunk_info):
         
-        device_string = devices[i_chunk]
+        device_string = inference_options.devices[i_chunk]
         
         chunk['run_name'] = 'inference-output-' + chunk['chunk_id']        
         chunk['run_output_dir'] = os.path.join(folder_yolo_results_dir,chunk['run_name'])
-        chunk['cmd'] = run_yolo_model(folder_yolo_results_dir,chunk['run_name'],chunk['dataset_file'],
-                                      model_file,execute=False,
+        chunk['cmd'] = run_yolo_model(folder_yolo_results_dir,
+                                      chunk['run_name'],
+                                      chunk['dataset_file'],
+                                      inference_options.model_file,
+                                      inference_options.yolo_working_dir,
+                                      execute=False,
                                       device_string=device_string)
-        chunk['script_name'] = os.path.join(folder_inference_script_dir,'run_chunk_{}_device_{}.sh'.format(
-            str(i_chunk).zfill(2),device_string))
+        chunk['script_name'] = os.path.join(folder_inference_script_dir,'run_chunk_{}_device_{}.{}'.format(
+            str(i_chunk).zfill(2),device_string,script_extension))
         with open(chunk['script_name'],'w') as f:
             f.write(chunk['cmd'])
         st = os.stat(chunk['script_name'])
@@ -709,8 +802,9 @@ def run_model_on_folder(input_folder_base,recursive=True):
     
     ##%% Save/load chunk state for debugging (because stuff crashes)
     
-    chunk_cache_file = os.path.join(project_chunk_cache_dir,folder_name_clean + '_chunk_info.json')    
-    os.makedirs(project_chunk_cache_dir,exist_ok=True)
+    chunk_cache_file = os.path.join(inference_options.project_chunk_cache_dir,
+                                    folder_name_clean + '_chunk_info.json')    
+    os.makedirs(inference_options.project_chunk_cache_dir,exist_ok=True)
     
     if False:
         
@@ -738,14 +832,14 @@ def run_model_on_folder(input_folder_base,recursive=True):
     if (execute_inline):
         
         chunk_commands = [chunk['script_name'] for chunk in chunk_info]
-        n_workers = len(devices)
+        n_workers = len(inference_options.devices)
        
         # Should we use threads (vs. processes) for parallelization?
         use_threads = True
        
         def run_chunk(cmd):
             os.environ['LD_LIBRARY_PATH']=''
-            os.chdir(yolo_working_dir)
+            os.chdir(inference_options.yolo_working_dir)
             return process_utils.execute_and_print(cmd,print_output=True)
            
         if n_workers == 1:  
@@ -777,7 +871,7 @@ def run_model_on_folder(input_folder_base,recursive=True):
     # We're reading patch results just to validate that they were written sensibly; we don't use the loaded
     # results directly.  We'll convert them to MD format and use that version.
     
-    model_short_name = os.path.basename(model_file).replace('.pt','')    
+    model_short_name = os.path.basename(inference_options.model_file).replace('.pt','')    
     
     # i_chunk = 0; chunk = chunk_info[i_chunk]
     for i_chunk,chunk in enumerate(chunk_info):
@@ -787,7 +881,7 @@ def run_model_on_folder(input_folder_base,recursive=True):
         
         json_files = glob.glob(run_dir + '/*.json')
         json_files = [fn for fn in json_files if 'md_format' not in fn]
-        assert len(json_files) == 1
+        assert len(json_files) == 1, 'Inference failed, no output written by YOLO script'
         
         yolo_json_file = json_files[0]
         chunk['yolo_json_file'] = yolo_json_file
@@ -837,10 +931,11 @@ def run_model_on_folder(input_folder_base,recursive=True):
     
     ##%% Merge results files from each chunk into one (patch-level) results file for the folder
     
-    os.makedirs(project_md_formatted_results_dir,exist_ok=True)
+    os.makedirs(inference_options.project_md_formatted_results_dir,exist_ok=True)
     md_formatted_results_files_for_chunks = [chunk['md_formatted_results_file'] for chunk in chunk_info]
-    md_formatted_results_file_for_folder = os.path.join(project_md_formatted_results_dir,
-                                    folder_name_clean + '.json')    
+    md_formatted_results_file_for_folder = os.path.join(
+        inference_options.project_md_formatted_results_dir,
+        folder_name_clean + '.json')    
     
     _ = combine_api_outputs.combine_api_output_files(md_formatted_results_files_for_chunks,
                                                  md_formatted_results_file_for_folder,
@@ -933,21 +1028,22 @@ def run_model_on_folder(input_folder_base,recursive=True):
     for i_image,image_fn_relative in tqdm(enumerate(images_relative),total=len(images_relative)):
         
         image_fn = os.path.join(input_folder_base,image_fn_relative)
-        assert os.path.isfile(image_fn)
+        assert os.path.isfile(image_fn), 'Image file {} doesn\'t exist'.format(image_fn)
                 
         output_im = {}
         output_im['file'] = image_fn_relative
         output_im['detections'] = []
             
         pil_im = vis_utils.open_image(image_fn)
-        assert pil_im.size[0] == expected_image_width
-        assert pil_im.size[1] == expected_image_height
+        if not inference_options.allow_variable_image_size:
+            assert pil_im.size[0] == expected_image_width
+            assert pil_im.size[1] == expected_image_height
         
         image_w = pil_im.size[0]
         image_h = pil_im.size[1]
         
         image_patch_info = image_fn_to_patch_info[image_fn]
-        assert image_patch_info['patches'][0]['image_fn'] == image_fn
+        assert image_patch_info['patches'][0]['image_fn'] == image_fn, 'Image/patch mapping error'
         
         # Patches just for this image
         patch_fn_to_patch_info_this_image = {}
@@ -1013,9 +1109,9 @@ def run_model_on_folder(input_folder_base,recursive=True):
         
     # ...for each image    
     
-    os.makedirs(project_image_level_results_dir,exist_ok=True)
+    os.makedirs(inference_options.project_image_level_results_dir,exist_ok=True)
     
-    md_results_image_level_fn = os.path.join(project_image_level_results_dir,
+    md_results_image_level_fn = os.path.join(inference_options.project_image_level_results_dir,
                                              folder_name_clean + '_md_results_image_level.json')
     print('Saving image-level results to {}'.format(md_results_image_level_fn))
           
@@ -1066,17 +1162,17 @@ def run_model_on_folder(input_folder_base,recursive=True):
         except Exception as e:
             print('Error cleaning up {}: {}'.format(fn,str(e)))
                 
-    if 'patch_cache_file' in cleanup_targets:
+    if 'patch_cache_file' in inference_options.cleanup_targets:
         safe_delete(patch_cache_file)
     else:
         print('Bypassing cleanup of patch cache file')
     
-    if 'chunk_cache_file' in cleanup_targets:
+    if 'chunk_cache_file' in inference_options.cleanup_targets:
         safe_delete(chunk_cache_file)
     else:
         print('Bypassing cleanup of chunk cache file')
         
-    if 'dataset_files' in cleanup_targets:
+    if 'dataset_files' in inference_options.cleanup_targets:
         if os.path.isdir(folder_dataset_file_dir):
             dataset_files = os.listdir(folder_dataset_file_dir)
             assert all([fn.endswith('.yaml') for fn in dataset_files])
@@ -1084,22 +1180,22 @@ def run_model_on_folder(input_folder_base,recursive=True):
     else:
         print('Bypassing cleanup of dataset files')
         
-    if 'patch_level_results' in cleanup_targets:
+    if 'patch_level_results' in inference_options.cleanup_targets:
         safe_delete(md_formatted_results_file_for_folder)
         safe_delete(md_formatted_results_file_for_folder_thresholded)
         safe_delete(patch_results_after_nms_file)
     else:
         print('Bypassing cleanup of patch-level results')
         
-    if 'inference_scripts' in cleanup_targets:
+    if 'inference_scripts' in inference_options.cleanup_targets:
         if os.path.isdir(folder_inference_script_dir):
             inference_scripts = os.listdir(folder_inference_script_dir)
-            assert all([fn.endswith('.sh') for fn in inference_scripts])
+            assert all([(fn.endswith('.sh') or fn.endswith('.bat')) for fn in inference_scripts])
             safe_delete(folder_inference_script_dir)
     else:
         print('Bypassing cleanup of inference scripts')
     
-    if 'patches' in cleanup_targets:
+    if 'patches' in inference_options.cleanup_targets:
         if os.path.isdir(patch_folder_for_folder):
             
             # TODO: leaf-node folders should end in JPG, and all files should be .jpg
@@ -1114,7 +1210,7 @@ def run_model_on_folder(input_folder_base,recursive=True):
     else:
         print('Bypassing cleanup of patches')
         
-    if 'symlink_images' in cleanup_targets:
+    if 'symlink_images' in inference_options.cleanup_targets:
         if os.path.isdir(folder_symlink_dir):
             # These are either folders called "chunk_00" or yolov5 cache files called "chunk_00.cache"
             symlink_folders_and_cache_files = os.listdir(folder_symlink_dir)
@@ -1123,7 +1219,7 @@ def run_model_on_folder(input_folder_base,recursive=True):
     else:
         print('Bypassing cleanup of symlink folder')
         
-    if 'yolo_results' in cleanup_targets:
+    if 'yolo_results' in inference_options.cleanup_targets:
         if os.path.isdir(folder_yolo_results_dir):
             yolo_results_folders = os.listdir(folder_yolo_results_dir)
             assert all([os.path.isdir(os.path.join(folder_yolo_results_dir,fn)) for fn in yolo_results_folders])
@@ -1133,7 +1229,7 @@ def run_model_on_folder(input_folder_base,recursive=True):
         print('Bypassing cleanup of YOLO-formatted results')              
     
     # Reserving this for future use, but right now it would be silly to delete this
-    if 'image_level_results' in cleanup_targets:
+    if 'image_level_results' in inference_options.cleanup_targets:
         safe_delete(md_results_image_level_fn)
     else:
         print('Bypassing cleanup of image-level results')
@@ -1225,6 +1321,7 @@ if False:
     
     #%% Preview results for patches at a variety of confidence thresholds
     
+    project_dir = None
     patch_results_file = patch_results_after_nms_file
             
     from api.batch_processing.postprocessing.postprocess_batch_results import (
@@ -1294,4 +1391,3 @@ if False:
                           expansion=0)
     
     path_utils.open_file(output_image_file)
-    
