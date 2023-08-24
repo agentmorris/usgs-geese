@@ -90,8 +90,8 @@ if False:
         
     #%% 
 
-    n_patches = 100
-    confidence_thresholds = default_preview_confidence_thresholds
+    n_patches = 2000
+    confidence_thresholds = [0.25] # default_preview_confidence_thresholds
     results_file = r"g:\temp\usgs-geese-inference-test\image_level_results\_temp_wdfw-test_md_results_image_level_nms.json"
     image_folder = r"g:\temp\wdfw-test"
     preview_folder = r"g:\temp\wdfw-test-preview"

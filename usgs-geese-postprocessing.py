@@ -89,7 +89,7 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
     for im in image_level_results['images']:
         
         # Coordinates are x/y/w/h, in normalized coordinates
-        image_size = [usgs_geese_inference.expected_image_width,usgs_geese_inference.expected_image_height]
+        image_size = [im['w'],im['h']]
         
         detections_absolute = []
         # det = im['detections'][0]
@@ -113,19 +113,24 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
         
     # ...for each image        
     
-    image_size = (usgs_geese_inference.expected_image_width,usgs_geese_inference.expected_image_height)
+    del image_size
+    
     patch_size = usgs_geese_inference.patch_size
     
-    patch_boundaries = usgs_geese_inference.get_patch_boundaries(image_size,patch_size,patch_stride=None)
-    print('Sampling from {} images, with {} candidate patches per image'.format(
-        len(relative_image_fn_to_results),len(patch_boundaries)))
+    print('Sampling from {} images'.format(len(relative_image_fn_to_results)))
 
-    # Generate a list of image/patch tuples to sample
+    # Generate a list of all image/patch tuples to sample from
     all_image_patch_tuples = []
     for i_image,fn in enumerate(relative_image_fn_to_results.keys()):
+        im = relative_image_fn_to_results[fn]
+        image_size = (im['w'],im['h'])
+        patch_boundaries = usgs_geese_inference.get_patch_boundaries(image_size,
+          patch_size,patch_stride=None)
+        
         for i_patch,patch_xy in enumerate(patch_boundaries):
             all_image_patch_tuples.append((fn,patch_xy))
             
+    # Sample randomly from the list of all patches
     if len(all_image_patch_tuples) <= n_patches:
         sampled_patch_tuples = all_image_patch_tuples
     else:
@@ -157,10 +162,12 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
             os.path.splitext(image_name)[0],patch_xy[0],patch_xy[1]) + '.jpg'
         patch_fn_absolute = os.path.join(patch_folder,patch_fn_relative)
         
+        im_results = relative_image_fn_to_results[image_fn_relative]
+        
         pil_im = vis_utils.open_image(image_fn_absolute)
-        assert pil_im.size[0] == usgs_geese_inference.expected_image_width
-        assert pil_im.size[1] == usgs_geese_inference.expected_image_height
-
+        assert im_results['w'] == pil_im.size[0], 'Image size error'
+        assert im_results['h'] == pil_im.size[1], 'Image size error'
+        
         # Extract the patch
         _ = usgs_geese_inference.extract_patch_from_image(pil_im,patch_xy,
                                      patch_image_fn=patch_fn_absolute,
@@ -168,7 +175,6 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
         
         # Find detections that overlap with this patch, and convert to patch-relative,
         # normalized coordinates
-        im_results = relative_image_fn_to_results[image_fn_relative]
         detections_this_image = im_results['detections_absolute']
         
         detections_this_patch = []
@@ -594,4 +600,3 @@ if False:
     with tqdm(total=len(image_level_results_filenames)) as pbar:
         for i,_ in enumerate(pool.imap_unordered(zip_file,image_level_results_filenames)):
             pbar.update()
-
