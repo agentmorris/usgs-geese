@@ -7,22 +7,7 @@
 # eliminating redundant boxes from the results.
 #
 # This module does not have a command-line driver; see run-izembek-model.py for
-# command-line inference.
-#
-# TODO:
-#
-# ** P0
-#
-# * None, all P0's are now in usgs-geese-postprocessing.py
-#
-# ** P1
-#
-# * Divide data into more chunks than devices, to support checkpointing
-# * Refactor folder inference to be able to run on arbitary lists of input images
-#
-# ** P2
-# 
-# * Assess the impact of using augmentation on both accuracy and speed
+# a command-line interface to this module.
 #
 ########
 
@@ -51,7 +36,10 @@ from api.batch_processing.postprocessing import combine_api_outputs
 
 validate_against_dataset_file = False
 
-# We will explicitly verify that images are actually this size
+# This is the size of the training images, but the only thing that matters is the
+# patch size, and it's possible to run arbitrary image sizes.  So at this point, this 
+# is more of a consistency check for scenarios where we *think* the images will be the
+# same size as the training image.
 expected_image_width = 8688
 expected_image_height = 5792
 
@@ -119,7 +107,7 @@ class USGSGeeseInferenceOptions:
                 
     def __init__(self, project_dir=None,yolo_working_dir=None,model_file=None,
                  devices=None,recursive=True,allow_variable_image_size=True,
-                 use_symlinks=True,no_cleanup=False):
+                 use_symlinks=True,no_cleanup=False,no_augment=False):
     
         if project_dir is None:
             self.project_dir = default_project_dir
@@ -144,6 +132,7 @@ class USGSGeeseInferenceOptions:
         self.recursive = recursive
         self.allow_variable_image_size = allow_variable_image_size
         self.use_symlinks = use_symlinks
+        self.augment = (not no_augment)
         
         # What things should we clean up at the end of the process for a folder?
         self.cleanup_targets = ['patch_cache_file','dataset_files','symlink_images',
@@ -782,7 +771,11 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     
     for i_chunk,chunk in enumerate(chunk_info):
         
-        device_string = inference_options.devices[i_chunk]
+        device = inference_options.devices[i_chunk]
+        if device < 0:
+            device_string = 'cpu'
+        else:
+            device_string = str(device)
         
         chunk['run_name'] = 'inference-output-' + chunk['chunk_id']        
         chunk['run_output_dir'] = os.path.join(folder_yolo_results_dir,chunk['run_name'])
@@ -792,6 +785,7 @@ def run_model_on_folder(input_folder_base,inference_options=None):
                                       inference_options.model_file,
                                       inference_options.yolo_working_dir,
                                       execute=False,
+                                      augment=inference_options.augment,
                                       device_string=device_string)
         chunk['script_name'] = os.path.join(folder_inference_script_dir,'run_chunk_{}_device_{}.{}'.format(
             str(i_chunk).zfill(2),device_string,script_extension))

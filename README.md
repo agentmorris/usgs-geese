@@ -68,7 +68,6 @@ These are listed in roughly the order in which you would use them.
 
 This is the main command-line entry point for inference; this is basically a command-line driver for usgs-geese-inference.py.
 
-
 ## Running the model
 
 This section describes the environment setup and command line process for running inference.  Training is not yet set up to be fully run from the command line, though it's close, and the environment should be the same.  Much of the code and environment is borrowed from [MegaDetector](https://github.com/agentmorris/MegaDetector), a model that does similar stuff for camera trap images.
@@ -81,7 +80,7 @@ Install prerequisites according to the [MegaDetector instructions for prerequisi
 
 #### 2. Download the model file
 
-Download the [Izembek bird detector](https://github.com/agentmorris/usgs-geese/releases/download/v1.0.0/usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt) to your computer.  These instructions will assume that you have downloaded the model to a folder called "c:\izembek-brant" (on Windows) or to a folder called "izembek-brant" within your home folder (on Linux/Mac), but if you put it somewhere else, that's fine, just be sure to change it in the steps below that point to a model file.
+Download the [Izembek bird detector](https://github.com/agentmorris/usgs-geese/releases/download/v1.0.0/usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt) to your computer.  It can be anywhere that's convenient, you'll specify the full path to the model file later.
 
 #### 3. Clone the relevant git repos and add them to your path, and set up your Python environment
 
@@ -173,6 +172,16 @@ pip install -r requirements.txt
 export PYTHONPATH="$PYTHONPATH:$HOME/git/MegaDetector:$HOME/git/yolov5:$HOME/git/usgs-geese"
 ```
 
+##### Updating the Python environment
+
+If time passes and we add packages to the environment file, and you want to update your environment without re-building from scratch, use (just showing Windows syntax here):
+
+```batch
+cd c:\git\usgs-geese
+mamba activate usgs-geese-inference
+mamba update -f environment-inference.yml
+```
+
 ### Actually running the model
 
 You can run the model with [run_izembek_model.py](run_izembek_model.py).  First, when you open a new Mambaforge prompt, don't forget to do this (on Windows):
@@ -194,15 +203,15 @@ export PYTHONPATH="$PYTHONPATH:$HOME/git/MegaDetector:$HOME/git/yolov5"
 Then you can run the script like this (using Windows syntax), substituting real paths for all the arguments:
 
 ```batch
-python run-izembek-model.py [MODEL_LOCATION] [IMAGE_FOLDER] [YOLO_FOLDER] [SCRATCH_FOLDER] --recursive --no_use_symlinks
+python run-izembek-model.py [MODEL_PATH] [IMAGE_FOLDER] [YOLO_FOLDER] [SCRATCH_FOLDER] --recursive --no_use_symlinks
 ```
 
-* MODEL_LOCATION is the location of the .pt you downloaded earlier
+* MODEL_PATH is the full path to the .pt you downloaded earlier, e.g. "c:\models\usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt"
 * IMAGE_FOLDER is the root folder of all the images you want to process (recursively, if you specify "--recursive")
 * YOLO_FOLDER is the folder where you checked out the YOLOv5 repo, e.g. "c:\git\yolov5"
 * SCRATCH_FOLDER is a folder you have permission to write to, on a drive that has at least twice as much free space as the size of the image folder
 
-The "--no_use_symlinks" argument tells the script not to attempt symlink creation; currently this results in more temporary disk space usage.  Typically this is useful on Windows machines where you don't have admin privileges.
+The "--no_use_symlinks" argument tells the script not to attempt symbolic link creation.  We use symbolic links at once step to minimize temporary disk space use, but this requires admin privileges on Windows, so if you're running on Windows and don't have admin privileges, use the "--no_use-symlinks" option.
 
 You can see a full list of options by running:
 
@@ -228,11 +237,48 @@ The first bit (something something something) corresponds to the folder name you
 
 ### Previewing the results
 
-TODO
+To generate preview pages like the <a href="https://lila.science/public/usgs-izembek-results/">samples linked to above</a>, use:
+
+```batch
+python izembek-model-postprocessing.py [RESULTS_FILE] --image_folder [IMAGE_FOLDER] --n_patches 100 --confidence_thresholds 0.5 0.6 --open_preview_pages
+```
+
+The values "1000" and "0.5 0.6" are just examples.
+
+* RESULTS_FILE is the full path to the .json results file produced during inference
+* IMAGE_FOLDER is the root folder on which you ran the model
+* --n_patches specifies the number of 1280x1280 patches to sample for the preview.  100 is a good number just to make sure everything is working, but assuming you have a very high fraction of empty patches, 3000 is a good minimum number to really get the gestalt of the results.
+* --confidence_thresholds is a (space-separated) list of confidence thresholds to generate preview pages for.  The string "0.5 0.6" is just an example.
+* --open_preview_pages will cause all the preview pages to open in your browser when the script is done
 
 ### Generating counts
 
-TODO
+To generate a .csv file with per-species counts for each image, use:
+
+```batch
+python izembek-model-postprocessing.py [RESULTS_FILE] --count_file [COUNT_FILE] --confidence_thresholds 0.5 0.6
+```
+
+* RESULTS_FILE is the full path to the .json results file produced during inference
+* COUNT_FILE is the .csv file to which you want to write the resulting counts 
+* --confidence_thresholds is a (space-separated) list of confidence thresholds to generate counts for.  The string "0.5 0.6" is just an example.
+
+### Random errors and how to fix them
+
+#### SSL errors when running the model for the first time
+
+If you get a bunch of errors that look like this:
+
+`WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1002)'))': /simple/gitpython/`
+
+...try this:
+
+```bash
+pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org "gitpython>=3.1.30"
+pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org "setuptools>=65.5.1"
+```
+
+...then try running the model again.
 
 ## Data source
 
@@ -240,11 +286,8 @@ All images are sampled from:
 
 Weiser, E. L., Flint, P. L., Marks, D. K., Shults, B. S., Wilson, H. M., Thompson, S. J. and Fischer, J. B., 2022, Aerial photo imagery from fall waterfowl surveys, Izembek Lagoon, Alaska, 2017-2019: U.S. Geological Survey data release, <a href="https://doi.org/10.5066/P9UHP1LE">https://doi.org/10.5066/P9UHP1LE</a>.
 
+## Open issues
 
-## Major open items
-
-* Allow variable image sizes in postprocessing
-* Support postprocessing from the command line  
-* Populate the "previewing the results" and "generating counts" sections in this README 
+* Allow confidence thresholds to vary by class (for both counting and preview generation)
 * Add checkpointing, currently you lose the whole result set if your job crashes
 * Clean up the extensive scratch space use, especially on Windows, where we create patches, then copy all of those patches

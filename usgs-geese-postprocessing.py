@@ -276,12 +276,131 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
 # ...def patch_level_preview()
 
 
-def image_level_counting(image_level_results_file,
+def image_level_counting(results_file,
+                         output_file=None,
+                         overwrite=False,
+                         counting_confidence_thresholds=None):
+    """
+    Given an image-level results file:
+        
+    * Count the number of occurrences in each class above a few different thresholds
+    * Write the resulting counts to .csv
+    
+    If output_file is None, writes the results to [results_file].csv
+    """
+    
+    if counting_confidence_thresholds is None:
+        counting_confidence_thresholds = default_counting_confidence_thresholds
+    
+    if output_file is None:
+        output_file = results_file + '_counts.csv'
+
+    if os.path.isfile(output_file) and not overwrite:
+        print('Output file {} exists and overwrite=False, skiping'.format(output_file))
+        return
+        
+    with open(results_file,'r') as f:
+        image_level_results = json.load(f)
+        
+    print('Loaded image-level results for {} images'.format(
+        len(image_level_results['images'])))
+    
+    # Make sure images are unique
+    image_filenames = [im['file'] for im in image_level_results['images']]
+    assert len(image_filenames) == len(set(image_filenames)), \
+        'Image uniqueness error'
+    
+    category_names = image_level_results['detection_categories'].values()
+    category_names = [s.lower() for s in category_names]
+    category_id_to_name = {}
+    for category_id in image_level_results['detection_categories']:
+        category_id_to_name[category_id] = \
+            image_level_results['detection_categories'][category_id].lower()
+    category_name_to_id = {v: k for k, v in category_id_to_name.items()}
+    
+    # This will be a list of dicts with fields
+    # image_path_local
+    # confidence_threshold
+    # E.g.: 'count_brant', 'count_other', 'count_gull', 'count_canada', 'count_emperor'
+    results = []
+    
+    # im = image_level_results['images'][0]
+    for im in tqdm(image_level_results['images']):
+        
+        fn_relative = im['file']
+        
+        for confidence_threshold_set in counting_confidence_thresholds:
+            
+            category_id_to_count = {}
+            for cat_id in image_level_results['detection_categories'].keys():
+                category_id_to_count[cat_id] = 0
+            
+            category_id_to_threshold = {}
+            
+            # If we're using the same confidence threshold for all classes
+            if isinstance(confidence_threshold_set,float):
+                for cat_id in category_id_to_count:
+                    category_id_to_threshold[cat_id] = confidence_threshold_set
+            # Otherwise this should map category *names* (not IDs) to thresholds
+            else:
+                assert isinstance(confidence_threshold_set,dict), \
+                    'Counting threshold input error'
+                assert len(category_name_to_id) == len(confidence_threshold_set), \
+                    'Counting threshold category error'
+                for category_name in category_name_to_id:
+                    assert category_name in confidence_threshold_set, \
+                        'No threshold mapping for category {}'.format(category_name)
+                for category_name in confidence_threshold_set:
+                    category_id_to_threshold[category_name_to_id[category_name]] = \
+                        confidence_threshold_set[category_name]                        
+            
+            # det = im['detections'][0]
+            for det in im['detections']:
+                
+                confidence_threshold = category_id_to_threshold[det['category']]
+                if det['conf'] >= confidence_threshold:                
+                    category_id_to_count[det['category']] = \
+                        category_id_to_count[det['category']] + 1
+            
+            # ...for each detection
+            
+            im_results = {}
+            im_results['filename'] = fn_relative
+            im_results['confidence_threshold_string'] = str(confidence_threshold_set)
+            
+            for category_id in category_id_to_count:
+                im_results['count_' + category_id_to_name[category_id]] = \
+                    category_id_to_count[category_id]
+                im_results['threshold_' + category_id_to_name[category_id]] = \
+                    category_id_to_threshold[category_id]
+        
+            results.append(im_results)
+            
+        # ...for each confidence threhsold        
+        
+    # ...for each image
+    
+    # Convert to a dataframe
+    df = pd.DataFrame.from_dict(results)
+    df.to_csv(output_file,header=True,index=False)
+    
+    return output_file
+
+# ...def image_level_counting(...)
+
+
+def image_level_counting_hd_compat(image_level_results_file,
                          image_name_prefix,
                          drive_root_path,
                          output_file=None,
                          overwrite=False,
                          counting_confidence_thresholds=None):
+    """
+    THIS IS A DEPRECATED VERSION OF IMAGE_LEVEL_COUNTING, temporarily maintained for 
+    compability with old results generated for a particular drive.  It's complicated 
+    and confusing, and has been superseded by image_level_counting()
+    """
+    
     """
     Given an image-level results file:
         
@@ -402,6 +521,7 @@ def image_level_counting(image_level_results_file,
             # ...for each detection
             
             im_results = {}
+            im_results['image_path_relative'] = im['file']
             im_results['image_path_drive_relative'] = image_path_drive_relative
             im_results['confidence_threshold_string'] = str(confidence_threshold_set)
             
@@ -421,7 +541,7 @@ def image_level_counting(image_level_results_file,
     df = pd.DataFrame.from_dict(results)
     df.to_csv(output_file,header=True,index=False)
     
-# ...def image_level_counting(...)
+# ...def image_level_counting_hd_compat(...)
 
 
 #%% Interactive driver
@@ -557,7 +677,7 @@ if False:
         image_level_results_file = os.path.join(image_level_results_base,
                                                 image_level_results_file_relative)
         
-        image_level_counting(image_level_results_file,
+        image_level_counting_hd_compat(image_level_results_file,
                              image_name_prefix,
                              drive_root_path,
                              output_file=None,
