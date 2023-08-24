@@ -79,9 +79,9 @@ This section describes the environment setup and command line process for runnin
 
 Install prerequisites according to the [MegaDetector instructions for prerequisite setup](https://github.com/agentmorris/MegaDetector/blob/main/megadetector.md#1-install-prerequisites-mambaforge-git-and-nvidia-stuff).  If you already have Mambaforge, git, and the latest NVIDIA driver installed, nothing to see here.
 
-#### 2. Download the model file and dataset definition file
+#### 2. Download the model file
 
-Download the [Izembek bird detector](https://github.com/agentmorris/usgs-geese/releases/download/v1.0.0/usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt) and associated [dataset definition file]() to your computer.  These instructions will assume that you have downloaded the model to a folder called "c:\izembek-brant" (on Windows) or to a folder called "izembek-brant" within your home folder (on Linux/Mac), but if you put it somewhere else, that's fine, just be sure to change it in the steps below that point to a model file.
+Download the [Izembek bird detector](https://github.com/agentmorris/usgs-geese/releases/download/v1.0.0/usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt) to your computer.  These instructions will assume that you have downloaded the model to a folder called "c:\izembek-brant" (on Windows) or to a folder called "izembek-brant" within your home folder (on Linux/Mac), but if you put it somewhere else, that's fine, just be sure to change it in the steps below that point to a model file.
 
 #### 3. Clone the relevant git repos and add them to your path, and set up your Python environment
 
@@ -96,7 +96,7 @@ mkdir c:\git
 cd c:\git
 git clone https://github.com/agentmorris/MegaDetector
 git clone https://github.com/agentmorris/usgs-geese
-git clone https://github.com/ultralytics/yolov5/
+git clone https://github.com/ultralytics/yolov5
 cd c:\git\usgs-geese
 mamba env create --file environment-inference.yml
 mamba activate usgs-geese-inference
@@ -109,7 +109,7 @@ Your environment is set up now!  In the future, when you open your Mambaforge pr
 ```batch
 cd c:\git\usgs-geese
 mamba activate usgs-geese-inference
-set PYTHONPATH=%PYTHONPATH%;c:\git\MegaDetector;c:\git\yolov5;g:\git\usgs-geese
+set PYTHONPATH=%PYTHONPATH%;c:\git\MegaDetector;c:\git\yolov5;c:\git\usgs-geese
 ```
 
 Pro tip: if you have administrative access to your machine, rather than using the "set PYTHONPATH" steps, you can also create a permanent PYTHONPATH environment variable.  Here's a [good page](https://www.computerhope.com/issues/ch000549.htm) about editing environment variables in Windows.  But if you just want to "stick to the script" and do it exactly the way we recommend above, that's fine.
@@ -121,7 +121,7 @@ mkdir c:\git
 cd c:\git
 git clone https://github.com/agentmorris/MegaDetector
 git clone https://github.com/agentmorris/usgs-geese
-git clone https://github.com/ultralytics/yolov5/
+git clone https://github.com/ultralytics/yolov5
 cd c:\git\usgs-geese
 mamba create -n usgs-geese-inference python=3.11
 mamba activate usgs-geese-inference
@@ -139,7 +139,7 @@ mkdir ~/git
 cd ~/git
 git clone https://github.com/agentmorris/MegaDetector
 git clone https://github.com/agentmorris/usgs-geese
-git clone https://github.com/ultralytics/yolov5/
+git clone https://github.com/ultralytics/yolov5
 cd ~/git/usgs-geese
 mamba env create --file environment-inference.yml
 mamba activate usgs-geese-inference
@@ -164,7 +164,7 @@ mkdir ~/git
 cd ~/git
 git clone https://github.com/agentmorris/MegaDetector
 git clone https://github.com/agentmorris/usgs-geese
-git clone https://github.com/ultralytics/yolov5/
+git clone https://github.com/ultralytics/yolov5
 cd ~/git/usgs-geese
 mamba create -n usgs-geese-inference python=3.11
 mamba activate usgs-geese-inference
@@ -180,7 +180,7 @@ You can run the model with [run_izembek_model.py](run_izembek_model.py).  First,
 ```batch
 cd c:\git\usgs-geese
 mamba activate usgs-geese-inference
-set PYTHONPATH=%PYTHONPATH%;c:\git\MegaDetector;c:\git\yolov5;g:\git\usgs-geese
+set PYTHONPATH=%PYTHONPATH%;c:\git\MegaDetector;c:\git\yolov5;c:\git\usgs-geese
 ```
 
 ...or this (on Linux):
