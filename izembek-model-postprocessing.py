@@ -119,7 +119,7 @@ if False:
     
     pass
 
-    #%%
+    #%% Preview page generation testing
     
     n_patches = 2000
     confidence_thresholds = [0.2,0.3,0.4,0.5,0.6]
@@ -135,23 +135,8 @@ if False:
     print(s)
     import clipboard; clipboard.copy(s)
     
-    #%%
     
-    n_patches = 2000
-    confidence_thresholds = [0.2,0.3,0.4,0.5,0.6]
-    results_file = r"g:\temp\usgs-geese-inference-test-noaug\image_level_results\_temp_wdfw-brant-images_md_results_image_level_nms.json"
-    image_folder = r"g:\temp\wdfw-brant-images"
-    preview_folder = r"g:\temp\wdfw-test-preview-no-aug"
-    script_name = 'izembek-model-postprocessing.py'
-    
-    threshold_string = ' '.join([str(t) for t in confidence_thresholds])
-    
-    s = f'python {script_name} "{results_file}" --image_folder "{image_folder}" --preview_folder "{preview_folder}"' + \
-                   f' --confidence_thresholds {threshold_string} --open_preview_pages --n_patches {n_patches}'
-    print(s)
-    import clipboard; clipboard.copy(s)
-    
-    #%%
+    #%% CSV testing
     
     confidence_thresholds = [0.2,0.3,0.4,0.5,0.6]
     results_file = r"g:\temp\usgs-geese-inference-test\image_level_results\_temp_wdfw-brant-images_md_results_image_level_nms.json"

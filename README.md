@@ -240,13 +240,14 @@ The first bit (something something something) corresponds to the folder name you
 To generate preview pages like the <a href="https://lila.science/public/usgs-izembek-results/">samples linked to above</a>, use:
 
 ```batch
-python izembek-model-postprocessing.py [RESULTS_FILE] --image_folder [IMAGE_FOLDER] --n_patches 100 --confidence_thresholds 0.5 0.6 --open_preview_pages
+python izembek-model-postprocessing.py [RESULTS_FILE] --image_folder [IMAGE_FOLDER] --preview_folder [PREVIEW_FOLDER] --n_patches 100 --confidence_thresholds 0.5 0.6 --open_preview_pages
 ```
 
 The values "1000" and "0.5 0.6" are just examples.
 
 * RESULTS_FILE is the full path to the .json results file produced during inference
 * IMAGE_FOLDER is the root folder on which you ran the model
+* PREVIEW_FOLDER is the folder where you want to write the preview pages
 * --n_patches specifies the number of 1280x1280 patches to sample for the preview.  100 is a good number just to make sure everything is working, but assuming you have a very high fraction of empty patches, 3000 is a good minimum number to really get the gestalt of the results.
 * --confidence_thresholds is a (space-separated) list of confidence thresholds to generate preview pages for.  The string "0.5 0.6" is just an example.
 * --open_preview_pages will cause all the preview pages to open in your browser when the script is done
@@ -264,6 +265,16 @@ python izembek-model-postprocessing.py [RESULTS_FILE] --count_file [COUNT_FILE] 
 * --confidence_thresholds is a (space-separated) list of confidence thresholds to generate counts for.  The string "0.5 0.6" is just an example.
 
 ### Random errors and how to fix them
+
+#### Getting the latest version of this repo
+
+If something isn't working as expected, make sure you have the latest version of this repo, by running:
+
+```batch
+cd c:\git\usgs-geese
+git fetch
+git pull
+```
 
 #### SSL errors when running the model for the first time
 

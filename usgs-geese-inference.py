@@ -519,6 +519,9 @@ def run_yolo_model(project_dir,run_name,dataset_file,model_file,yolo_working_dir
     cmd += ' --device "{}" --save-json'.format(device_string)
     cmd += ' --project "{}" --name "{}" --exist-ok'.format(project_dir,run_name)
     
+    # To save .txt results (useful for debugging)
+    # cmd += ' --save-txt --save-conf'
+    
     if augment:
         cmd += ' --augment'
     

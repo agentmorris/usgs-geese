@@ -93,7 +93,7 @@ if False:
     
     pass
 
-    #%%
+    #%% Run in Python
     
     project_dir = r'g:\temp\usgs-geese-inference-test'
     yolo_working_dir = r'c:\git\yolov5-current'
@@ -108,13 +108,15 @@ if False:
     
     usgs_geese_inference.run_model_on_folder(image_dir,inference_options)
     
-    #%%
+    
+    #%% Generate command
     
     model_file = r"c:\users\dmorr\models\usgs-geese\usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt"
     script_name = 'run-izembek-model.py'
     yolo_folder = "c:\git\yolov5-current"
+    image_folder = r"g:\temp\wdfw-test"
     
     import clipboard
     
-    clipboard.copy(f'python "{model_file}"  "g:\temp\wdfw-brant-images" "{yolo_folder}" ' + \
+    clipboard.copy(f'python "{script_name}" "{model_file}"  "{image_folder}" "{yolo_folder}" ' + \
           r'"g:\temp\usgs-geese-inference-test" --recursive --no_cleanup')
