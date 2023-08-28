@@ -64,8 +64,11 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
     if preview_confidence_thresholds is None:
         preview_confidence_thresholds = default_preview_confidence_thresholds
         
-    assert os.path.isfile(image_level_results_file)
-    assert os.path.isdir(image_folder_base)
+    assert os.path.isfile(image_level_results_file), \
+        'Results file {} does not exist'.format(image_level_results_file)
+    assert os.path.isdir(image_folder_base), \
+        'Image folder {} does not exist'.format(image_folder_base)
+        
     os.makedirs(preview_folder,exist_ok=True)
     
     with open(image_level_results_file,'r') as f:
@@ -86,12 +89,12 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
     for im in image_level_results['images']:
         
         # Coordinates are x/y/w/h, in normalized coordinates
-        image_size = [usgs_geese_inference.expected_image_width,usgs_geese_inference.expected_image_height]
+        image_size = [im['w'],im['h']]
         
         detections_absolute = []
         # det = im['detections'][0]
         for det in im['detections']:
-            assert 'bbox' in det and len(det['bbox']) == 4
+            assert 'bbox' in det and len(det['bbox']) == 4, 'Results file validation error'
             bbox_absolute = [
                 det['bbox'][0] * image_size[0],
                 det['bbox'][1] * image_size[1],
@@ -105,23 +108,29 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
             detections_absolute.append(det_absolute)
         
         im['detections_absolute'] = detections_absolute
-        assert len(im['detections_absolute']) == len(im['detections'])
+        assert len(im['detections_absolute']) == len(im['detections']), \
+            'Results file conversion error'
         
     # ...for each image        
     
-    image_size = (usgs_geese_inference.expected_image_width,usgs_geese_inference.expected_image_height)
+    del image_size
+    
     patch_size = usgs_geese_inference.patch_size
     
-    patch_boundaries = usgs_geese_inference.get_patch_boundaries(image_size,patch_size,patch_stride=None)
-    print('Sampling from {} images, with {} candidate patches per image'.format(
-        len(relative_image_fn_to_results),len(patch_boundaries)))
+    print('Sampling from {} images'.format(len(relative_image_fn_to_results)))
 
-    # Generate a list of image/patch tuples to sample
+    # Generate a list of all image/patch tuples to sample from
     all_image_patch_tuples = []
     for i_image,fn in enumerate(relative_image_fn_to_results.keys()):
+        im = relative_image_fn_to_results[fn]
+        image_size = (im['w'],im['h'])
+        patch_boundaries = usgs_geese_inference.get_patch_boundaries(image_size,
+          patch_size,patch_stride=None)
+        
         for i_patch,patch_xy in enumerate(patch_boundaries):
             all_image_patch_tuples.append((fn,patch_xy))
             
+    # Sample randomly from the list of all patches
     if len(all_image_patch_tuples) <= n_patches:
         sampled_patch_tuples = all_image_patch_tuples
     else:
@@ -143,7 +152,8 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
     
         image_fn_relative = patch[0]
         image_fn_absolute = os.path.join(image_folder_base,image_fn_relative)
-        assert os.path.isfile(image_fn_absolute)
+        assert os.path.isfile(image_fn_absolute), \
+            'Image {} does not exist'.format(image_fn_absolute)
         patch_xy = patch[1]
         
         # Generate a usable filename for this patch
@@ -152,10 +162,12 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
             os.path.splitext(image_name)[0],patch_xy[0],patch_xy[1]) + '.jpg'
         patch_fn_absolute = os.path.join(patch_folder,patch_fn_relative)
         
+        im_results = relative_image_fn_to_results[image_fn_relative]
+        
         pil_im = vis_utils.open_image(image_fn_absolute)
-        assert pil_im.size[0] == usgs_geese_inference.expected_image_width
-        assert pil_im.size[1] == usgs_geese_inference.expected_image_height
-
+        assert im_results['w'] == pil_im.size[0], 'Image size error'
+        assert im_results['h'] == pil_im.size[1], 'Image size error'
+        
         # Extract the patch
         _ = usgs_geese_inference.extract_patch_from_image(pil_im,patch_xy,
                                      patch_image_fn=patch_fn_absolute,
@@ -163,7 +175,6 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
         
         # Find detections that overlap with this patch, and convert to patch-relative,
         # normalized coordinates
-        im_results = relative_image_fn_to_results[image_fn_relative]
         detections_this_image = im_results['detections_absolute']
         
         detections_this_patch = []
@@ -265,12 +276,131 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
 # ...def patch_level_preview()
 
 
-def image_level_counting(image_level_results_file,
+def image_level_counting(results_file,
+                         output_file=None,
+                         overwrite=False,
+                         counting_confidence_thresholds=None):
+    """
+    Given an image-level results file:
+        
+    * Count the number of occurrences in each class above a few different thresholds
+    * Write the resulting counts to .csv
+    
+    If output_file is None, writes the results to [results_file].csv
+    """
+    
+    if counting_confidence_thresholds is None:
+        counting_confidence_thresholds = default_counting_confidence_thresholds
+    
+    if output_file is None:
+        output_file = results_file + '_counts.csv'
+
+    if os.path.isfile(output_file) and not overwrite:
+        print('Output file {} exists and overwrite=False, skiping'.format(output_file))
+        return
+        
+    with open(results_file,'r') as f:
+        image_level_results = json.load(f)
+        
+    print('Loaded image-level results for {} images'.format(
+        len(image_level_results['images'])))
+    
+    # Make sure images are unique
+    image_filenames = [im['file'] for im in image_level_results['images']]
+    assert len(image_filenames) == len(set(image_filenames)), \
+        'Image uniqueness error'
+    
+    category_names = image_level_results['detection_categories'].values()
+    category_names = [s.lower() for s in category_names]
+    category_id_to_name = {}
+    for category_id in image_level_results['detection_categories']:
+        category_id_to_name[category_id] = \
+            image_level_results['detection_categories'][category_id].lower()
+    category_name_to_id = {v: k for k, v in category_id_to_name.items()}
+    
+    # This will be a list of dicts with fields
+    # image_path_local
+    # confidence_threshold
+    # E.g.: 'count_brant', 'count_other', 'count_gull', 'count_canada', 'count_emperor'
+    results = []
+    
+    # im = image_level_results['images'][0]
+    for im in tqdm(image_level_results['images']):
+        
+        fn_relative = im['file']
+        
+        for confidence_threshold_set in counting_confidence_thresholds:
+            
+            category_id_to_count = {}
+            for cat_id in image_level_results['detection_categories'].keys():
+                category_id_to_count[cat_id] = 0
+            
+            category_id_to_threshold = {}
+            
+            # If we're using the same confidence threshold for all classes
+            if isinstance(confidence_threshold_set,float):
+                for cat_id in category_id_to_count:
+                    category_id_to_threshold[cat_id] = confidence_threshold_set
+            # Otherwise this should map category *names* (not IDs) to thresholds
+            else:
+                assert isinstance(confidence_threshold_set,dict), \
+                    'Counting threshold input error'
+                assert len(category_name_to_id) == len(confidence_threshold_set), \
+                    'Counting threshold category error'
+                for category_name in category_name_to_id:
+                    assert category_name in confidence_threshold_set, \
+                        'No threshold mapping for category {}'.format(category_name)
+                for category_name in confidence_threshold_set:
+                    category_id_to_threshold[category_name_to_id[category_name]] = \
+                        confidence_threshold_set[category_name]                        
+            
+            # det = im['detections'][0]
+            for det in im['detections']:
+                
+                confidence_threshold = category_id_to_threshold[det['category']]
+                if det['conf'] >= confidence_threshold:                
+                    category_id_to_count[det['category']] = \
+                        category_id_to_count[det['category']] + 1
+            
+            # ...for each detection
+            
+            im_results = {}
+            im_results['filename'] = fn_relative
+            im_results['confidence_threshold_string'] = str(confidence_threshold_set)
+            
+            for category_id in category_id_to_count:
+                im_results['count_' + category_id_to_name[category_id]] = \
+                    category_id_to_count[category_id]
+                im_results['threshold_' + category_id_to_name[category_id]] = \
+                    category_id_to_threshold[category_id]
+        
+            results.append(im_results)
+            
+        # ...for each confidence threhsold        
+        
+    # ...for each image
+    
+    # Convert to a dataframe
+    df = pd.DataFrame.from_dict(results)
+    df.to_csv(output_file,header=True,index=False)
+    
+    return output_file
+
+# ...def image_level_counting(...)
+
+
+def image_level_counting_hd_compat(image_level_results_file,
                          image_name_prefix,
                          drive_root_path,
                          output_file=None,
                          overwrite=False,
                          counting_confidence_thresholds=None):
+    """
+    THIS IS A DEPRECATED VERSION OF IMAGE_LEVEL_COUNTING, temporarily maintained for 
+    compability with old results generated for a particular drive.  It's complicated 
+    and confusing, and has been superseded by image_level_counting()
+    """
+    
     """
     Given an image-level results file:
         
@@ -314,7 +444,8 @@ def image_level_counting(image_level_results_file,
     
     # Make sure images are unique
     image_filenames = [im['file'] for im in image_level_results['images']]
-    assert len(image_filenames) == len(set(image_filenames))
+    assert len(image_filenames) == len(set(image_filenames)), \
+        'Image uniqueness error'
     
     category_names = image_level_results['detection_categories'].values()
     category_names = [s.lower() for s in category_names]
@@ -351,7 +482,8 @@ def image_level_counting(image_level_results_file,
             image_path_drive_relative = os.path.join(image_name_prefix,image_path_prefix_relative)
         
         image_path_absolute = os.path.join(drive_root_path,image_path_drive_relative)
-        assert os.path.isfile(image_path_absolute)
+        assert os.path.isfile(image_path_absolute), \
+            'Image file {} does not exist'.format(image_path_absolute)
         
         for confidence_threshold_set in counting_confidence_thresholds:
             
@@ -367,8 +499,10 @@ def image_level_counting(image_level_results_file,
                     category_id_to_threshold[cat_id] = confidence_threshold_set
             # Otherwise this should map category *names* (not IDs) to thresholds
             else:
-                assert isinstance(confidence_threshold_set,dict)
-                assert len(category_name_to_id) == len(confidence_threshold_set)
+                assert isinstance(confidence_threshold_set,dict), \
+                    'Counting threshold input error'
+                assert len(category_name_to_id) == len(confidence_threshold_set), \
+                    'Counting threshold category error'
                 for category_name in category_name_to_id:
                     assert category_name in confidence_threshold_set, \
                         'No threshold mapping for category {}'.format(category_name)
@@ -387,6 +521,7 @@ def image_level_counting(image_level_results_file,
             # ...for each detection
             
             im_results = {}
+            im_results['image_path_relative'] = im['file']
             im_results['image_path_drive_relative'] = image_path_drive_relative
             im_results['confidence_threshold_string'] = str(confidence_threshold_set)
             
@@ -406,7 +541,7 @@ def image_level_counting(image_level_results_file,
     df = pd.DataFrame.from_dict(results)
     df.to_csv(output_file,header=True,index=False)
     
-# ...def image_level_counting(...)
+# ...def image_level_counting_hd_compat(...)
 
 
 #%% Interactive driver
@@ -461,7 +596,8 @@ if False:
         
         image_folder_base = image_folder_base.replace('My Passport/','My Passport1/')
         
-        assert os.path.isdir(image_folder_base)
+        assert os.path.isdir(image_folder_base), \
+            'Image folder {} does not exist'.format(image_folder_base)
     
         preview_folder = os.path.join(preview_folder_base,
                                       os.path.splitext(os.path.basename(image_level_results_file))[0])
@@ -541,7 +677,7 @@ if False:
         image_level_results_file = os.path.join(image_level_results_base,
                                                 image_level_results_file_relative)
         
-        image_level_counting(image_level_results_file,
+        image_level_counting_hd_compat(image_level_results_file,
                              image_name_prefix,
                              drive_root_path,
                              output_file=None,
@@ -584,4 +720,3 @@ if False:
     with tqdm(total=len(image_level_results_filenames)) as pbar:
         for i,_ in enumerate(pool.imap_unordered(zip_file,image_level_results_filenames)):
             pbar.update()
-
