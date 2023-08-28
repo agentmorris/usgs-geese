@@ -102,32 +102,41 @@ if False:
     
     pass
 
-    #%% Run in Python
+    #%% Prepare inference pass
     
-    image_dir = r'd:\tmp'
+    # image_dir = r'd:\tmp'
+    image_dir = r'g:\temp\wdfw-brant-images'
     yolo_working_dir = r'c:\git\yolov5-current'
     scratch_dir = r'g:\temp\scratch'
     model_file = os.path.expanduser('~/models/usgs-geese/usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt')
+    use_symlinks = False
+    cleanup = True
     
     inference_options = usgs_geese_inference.USGSGeeseInferenceOptions(
         project_dir=scratch_dir,
         yolo_working_dir=yolo_working_dir,
         model_file=model_file,
-        use_symlinks=False,
-        no_cleanup=False)
-    inference_options.n_cores_patch_generation = 1
+        use_symlinks=use_symlinks,
+        no_cleanup=(not cleanup))
+    # inference_options.n_cores_patch_generation = 1
+    
+    
+    #%% Run in Python
     
     results = usgs_geese_inference.run_model_on_folder(image_dir,inference_options)
     
     
     #%% Generate command
     
-    model_file = r"c:\users\dmorr\models\usgs-geese\usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt"
     script_name = 'run-izembek-model.py'
-    yolo_folder = "c:\git\yolov5-current"
-    image_folder = r"g:\temp\wdfw-test"
-    
-    import clipboard
-    
-    clipboard.copy(f'python "{script_name}" "{model_file}"  "{image_folder}" "{yolo_folder}" ' + \
-          r'"g:\temp\usgs-geese-inference-test" --recursive --no_cleanup')
+    output_file = r'g:\temp\wdfw-results-nms.json'
+        
+    import clipboard  
+    cmd = f'python "{script_name}" "{model_file}"  "{image_dir}" "{yolo_working_dir}" ' + \
+          r'"g:\temp\usgs-geese-inference-test" --recursive'
+    if not cleanup:
+        cmd += ' --no_cleanup'
+    if not use_symlinks:
+        cmd += ' --no_use_symlinks'
+    print(cmd)
+    clipboard.copy(cmd)
