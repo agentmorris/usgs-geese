@@ -121,6 +121,37 @@ python train.py --resume
 pass
 
 
+#%% Make plots during training
+
+import os
+import pandas as pd
+import matplotlib.pyplot as plt
+
+results_file = os.path.expanduser('~/git/yolov5-current/usgs-geese/usgs-geese-yolov5x-230820-b8-img1280-e200/results.csv')
+
+df = pd.read_csv(results_file)
+df = df.rename(columns=lambda x: x.strip())
+    
+fig,ax = plt.subplots()
+
+df.plot(x = 'epoch', y = 'val/box_loss', ax = ax) 
+df.plot(x = 'epoch', y = 'val/obj_loss', ax = ax, secondary_y = True) 
+
+df.plot(x = 'epoch', y = 'train/box_loss', ax = ax) 
+df.plot(x = 'epoch', y = 'train/obj_loss', ax = ax, secondary_y = True) 
+
+plt.show()
+
+fig,ax = plt.subplots()
+
+df.plot(x = 'epoch', y = 'metrics/precision', ax = ax) 
+df.plot(x = 'epoch', y = 'metrics/recall', ax = ax) 
+df.plot(x = 'epoch', y = 'metrics/mAP_0.5', ax = ax) 
+df.plot(x = 'epoch', y = 'metrics/mAP_0.5:0.95', ax = ax) 
+
+plt.show()
+
+
 #%% Back up trained weights
 
 """
