@@ -11,6 +11,7 @@
 
 import os
 import sys
+import shutil
 import importlib
 import argparse
 
@@ -42,7 +43,8 @@ def main():
     parser.add_argument(
         '--output_file',
         type=str,
-        help='Path to output JSON results file, should end with a .json extension')
+        default=None,
+        help='Path to output JSON results file, should end with a .json extension.  Always written to the scratch folder; this option just copies the final results file to a specified location.')
     parser.add_argument(
         '--recursive',
         action='store_true',
@@ -81,8 +83,15 @@ def main():
         no_cleanup=args.no_cleanup,
         devices=[args.device])
 
-    usgs_geese_inference.run_model_on_folder(args.input_path,inference_options)
-
+    results = usgs_geese_inference.run_model_on_folder(args.input_path,inference_options)
+    
+    if args.output_file is not None:
+        nms_results_file = results['md_results_image_level_nms_fn']
+        assert os.path.isfile(nms_results_file), \
+            'Could not find output file {}'.format(nms_results_file)
+        shutil.copyfile(nms_results_file,args.output_file)
+        print('Copied results file to {}'.format(args.output_file))
+        
 if __name__ == '__main__':
     main()
     
@@ -95,18 +104,20 @@ if False:
 
     #%% Run in Python
     
-    project_dir = r'g:\temp\usgs-geese-inference-test'
+    image_dir = r'd:\tmp'
     yolo_working_dir = r'c:\git\yolov5-current'
+    scratch_dir = r'g:\temp\scratch'
     model_file = os.path.expanduser('~/models/usgs-geese/usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt')
     
     inference_options = usgs_geese_inference.USGSGeeseInferenceOptions(
-        project_dir=project_dir,
+        project_dir=scratch_dir,
         yolo_working_dir=yolo_working_dir,
-        model_file=model_file)
-
-    image_dir = r'g:\temp\wdfw-brant-images'
+        model_file=model_file,
+        use_symlinks=False,
+        no_cleanup=False)
+    inference_options.n_cores_patch_generation = 1
     
-    usgs_geese_inference.run_model_on_folder(image_dir,inference_options)
+    results = usgs_geese_inference.run_model_on_folder(image_dir,inference_options)
     
     
     #%% Generate command

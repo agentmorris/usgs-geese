@@ -53,12 +53,11 @@ yolo_image_size = 1280
 # inference, we strip out very-low-confidence detections.
 post_inference_conf_thres = 0.025
 
-n_cores_patch_generation = 16
 parallelize_patch_generation_with_threads = True
 
-force_patch_generation = False
-overwrite_existing_patches = False
-overwrite_md_results_files = False
+force_patch_generation = True
+overwrite_existing_patches = True
+overwrite_md_results_files = True
 
 patch_jpeg_quality = 95
 
@@ -152,6 +151,8 @@ class USGSGeeseInferenceOptions:
         self.project_chunk_cache_dir = os.path.join(project_dir,'chunk_cache')
         self.project_md_formatted_results_dir = os.path.join(project_dir,'md_formatted_results')
 
+        self.n_cores_patch_generation = 16
+
 
 #%% Validate class names if requested
 
@@ -209,6 +210,12 @@ def get_patch_boundaries(image_size,patch_size,patch_stride=None,allow_variable_
     """
     Get a list of patch starting coordinates (x,y) given an image size
     and a stride.  Stride defaults to half the patch size.
+    
+    Patch size is guaranteed, stride may deviate to make sure all pixels are covered.
+    I.e., we move by regular strides until the current patch walks off the right/bottom,
+    at which point it backs up to one patch from the end.  So if your image is 15
+    pixels wide and you have a stride of 10 pixels, you will get starting positions 
+    of 0 (from 0 to 9) and 5 (from 5 to 14).
     """
     
     if patch_stride is None:
@@ -230,12 +237,17 @@ def get_patch_boundaries(image_size,patch_size,patch_stride=None,allow_variable_
             
             patch_start_positions.append([x_start,y_start])
             
+            # If this patch put us right at the end of the last column, we're done
+            if x_end == image_width - 1:
+                break
+            
+            # Move one patch to the right
             x_start += patch_stride[0]
             x_end = x_start + patch_size[0] - 1
              
-            if x_end == image_width - 1:
-                break
-            elif x_end > (image_width - 1):
+            # If this patch flows over the edge, add one more patch to cover
+            # the pixels on the end, then we're done.
+            if x_end > (image_width - 1):
                 overshoot = (x_end - image_width) + 1
                 x_start -= overshoot
                 x_end = x_start + patch_size[0] - 1
@@ -249,17 +261,22 @@ def get_patch_boundaries(image_size,patch_size,patch_stride=None,allow_variable_
     patch_start_positions = []
     
     y_start = 0; y_end = y_start + patch_size[1] - 1
-        
+    
     while(True):
     
         patch_start_positions = add_patch_row(patch_start_positions,y_start)
         
+        # If this patch put us right at the bottom of the lats row, we're done
+        if y_end == image_height - 1:
+            break
+        
+        # Move one patch down
         y_start += patch_stride[1]
         y_end = y_start + patch_size[1] - 1
         
-        if y_end == image_height - 1:
-            break
-        elif y_end > (image_height - 1):
+        # If this patch flows over the bottom, add one more patch to cover
+        # the pixels at the bottom, then we're done
+        if y_end > (image_height - 1):
             overshoot = (y_end - image_height) + 1
             y_start -= overshoot
             y_end = y_start + patch_size[1] - 1
@@ -268,9 +285,16 @@ def get_patch_boundaries(image_size,patch_size,patch_stride=None,allow_variable_
     
     # ...for each row
     
-    if not allow_variable_image_size:
-        assert patch_start_positions[-1][0]+patch_size[0] == image_width, 'Illegal image size'
-        assert patch_start_positions[-1][1]+patch_size[1] == image_height, 'Illegal image size'
+    # The last patch should always end at the bottom-right of the image
+    assert patch_start_positions[-1][0]+patch_size[0] == image_width, \
+        'Patch generation error (last patch does not end on the right)'
+    assert patch_start_positions[-1][1]+patch_size[1] == image_height, \
+        'Patch generation error (last patch does not end at the bottom)'
+    
+    # All patches should be unique
+    patch_start_positions_tuples = [tuple(x) for x in patch_start_positions]
+    assert len(patch_start_positions_tuples) == len(set(patch_start_positions_tuples)), \
+        'Patch generation error (duplicate start position)'
     
     return patch_start_positions
 
@@ -614,7 +638,7 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     assert os.path.isdir(input_folder_base), \
         'Could not find input folder {}'.format(input_folder_base)
     
-    folder_name_clean = input_folder_base.replace('\\','/').replace('/','_').replace(' ','_')
+    folder_name_clean = input_folder_base.replace('\\','/').replace('/','_').replace(' ','_').replace(':','_')
     if folder_name_clean.startswith('_'):
         folder_name_clean = folder_name_clean[1:]
     
@@ -638,10 +662,10 @@ def run_model_on_folder(input_folder_base,inference_options=None):
                                            folder_name_clean)
                                            
     if force_patch_generation or (not os.path.isfile(patch_cache_file)):
-        
+                
         print('Generating patches for {}'.format(input_folder_base))
             
-        if n_cores_patch_generation == 1:
+        if inference_options.n_cores_patch_generation == 1:            
             all_image_patch_info = []
             # image_fn_relative = images_relative[0]
             for image_fn_relative in tqdm(images_relative):
@@ -651,11 +675,11 @@ def run_model_on_folder(input_folder_base,inference_options=None):
                 all_image_patch_info.append(image_patch_info)
         else:                
             if parallelize_patch_generation_with_threads:
-                pool = ThreadPool(n_cores_patch_generation)
-                print('Generating patches on a pool of {} threads'.format(n_cores_patch_generation))
+                pool = ThreadPool(inference_options.n_cores_patch_generation)
+                print('Generating patches on a pool of {} threads'.format(inference_options.n_cores_patch_generation))
             else:
-                pool = Pool(n_cores_patch_generation)
-                print('Generating patches on a pool of {} processes'.format(n_cores_patch_generation))
+                pool = Pool(inference_options.n_cores_patch_generation)
+                print('Generating patches on a pool of {} processes'.format(inference_options.n_cores_patch_generation))
     
             all_image_patch_info = list(tqdm(pool.imap(
                 partial(generate_patches_for_image,
@@ -725,7 +749,8 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     
     folder_symlink_dir = os.path.join(inference_options.project_symlink_dir,
                                       folder_name_clean)
-                                      
+    symlink_folder_existed = os.path.isdir(folder_symlink_dir)
+    
     for i_chunk,chunk_files in enumerate(patch_chunks):
     
         chunk_symlink_dir = os.path.join(folder_symlink_dir,'chunk_{}'.format(str(i_chunk).zfill(2)))
@@ -736,9 +761,14 @@ def run_model_on_folder(input_folder_base,inference_options=None):
         chunk_patch_id_to_file = create_symlink_folder_for_patches(chunk_files,
                                                                    chunk_symlink_dir,
                                                                    inference_options)
-        chunk_symlinks = os.listdir(chunk_symlink_dir)
-        assert len(chunk_symlinks) == len(chunk_patch_id_to_file), \
-            'Unexpected number of patch files'
+        
+        # If we just created the symlink folder, double-check that it has exactly as many
+        # patch files as we think it should.  This is just a debugging consistency check
+        # during dev.
+        if not symlink_folder_existed:
+            chunk_symlinks = os.listdir(chunk_symlink_dir)
+            assert len(chunk_symlinks) == len(chunk_patch_id_to_file), \
+                'Unexpected number of patch files'            
         
         chunk = {'chunk_id':'chunk_{}'.format(str(i_chunk).zfill(2)),
                            'symlink_dir':chunk_symlink_dir,
@@ -868,10 +898,7 @@ def run_model_on_folder(input_folder_base,inference_options=None):
         print('Bypassing inline execution')
         
         
-    ##%% Read and convert patch results for each chunk
-    
-    # We're reading patch results just to validate that they were written sensibly; we don't use the loaded
-    # results directly.  We'll convert them to MD format and use that version.
+    ##%% Convert patch results for each chunk to MD format
     
     model_short_name = os.path.basename(inference_options.model_file).replace('.pt','')    
     
@@ -917,7 +944,7 @@ def run_model_on_folder(input_folder_base,inference_options=None):
                 assert patch_folder_for_folder in fn, 'Patch lookup error'
                 relative_fn = os.path.relpath(fn,patch_folder_for_folder)
                 patch_id_to_relative_path[patch_id] = relative_fn
-                        
+               
             yolo_json_output_to_md_output(yolo_json_file,
                                           image_folder=patch_folder_for_folder,
                                           output_file=md_formatted_results_file,
