@@ -1,4 +1,5 @@
 # python>=3.10
+Pillow >= 9.1.0, < 10.0
 tqdm >= 4.65.0
 matplotlib >= 3.3
 humanfriendly >= 10.0  

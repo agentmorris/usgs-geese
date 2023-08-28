@@ -122,8 +122,9 @@ if False:
     #%% Preview page generation testing
     
     n_patches = 2000
-    confidence_thresholds = [0.2,0.3,0.4,0.5,0.6]
+    confidence_thresholds = [0.6] # [0.2,0.3,0.4,0.5,0.6]
     results_file = r"g:\temp\usgs-geese-inference-test\image_level_results\_temp_wdfw-brant-images_md_results_image_level_nms.json"
+    # results_file = r"g:\temp\usgs-geese-inference-test\image_level_results\_temp_wdfw-brant-images_md_results_image_level.json"
     image_folder = r"g:\temp\wdfw-brant-images"
     preview_folder = r"g:\temp\wdfw-test-preview-with-aug"
     script_name = 'izembek-model-postprocessing.py'
