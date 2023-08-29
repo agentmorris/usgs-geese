@@ -24,6 +24,7 @@ usgs_geese_inference = importlib.import_module('usgs-geese-inference')
 
 from md_visualization import visualization_utils as vis_utils
 from md_utils import path_utils
+from detection import run_tiled_inference
 
 default_preview_confidence_thresholds = [0.4,0.5,0.6,0.7,0.8]
 default_counting_confidence_thresholds = [0.4,0.5,0.6,0.7,0.8]
@@ -124,7 +125,7 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
     for i_image,fn in enumerate(relative_image_fn_to_results.keys()):
         im = relative_image_fn_to_results[fn]
         image_size = (im['w'],im['h'])
-        patch_boundaries = usgs_geese_inference.get_patch_boundaries(image_size,
+        patch_boundaries = run_tiled_inference.get_patch_boundaries(image_size,
           patch_size,patch_stride=None)
         
         for i_patch,patch_xy in enumerate(patch_boundaries):

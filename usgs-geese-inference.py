@@ -25,12 +25,10 @@ from multiprocessing.pool import Pool
 from functools import partial
 from tqdm import tqdm
 
-import torch
-from torchvision import ops
-
 from md_utils import path_utils
 from md_utils import process_utils
 from md_visualization import visualization_utils as vis_utils
+from detection.run_tiled_inference import get_patch_boundaries, in_place_nms
 from data_management.yolo_output_to_md_output import yolo_json_output_to_md_output
 from api.batch_processing.postprocessing import combine_api_outputs
 
@@ -86,6 +84,15 @@ default_yolo_working_dir = os.path.expanduser('~/git/yolov5-current')
 default_model_base = os.path.expanduser('~/models/usgs-geese')
 default_model_file = os.path.join(default_model_base,
                           'usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt')
+
+default_yolo_category_id_to_name = \
+{
+    0: 'Brant',
+    1: 'Other',
+    2: 'Gull',
+    3: 'Canada',
+    4: 'Emperor'
+}
 
 default_devices = [0]
 
@@ -152,20 +159,12 @@ class USGSGeeseInferenceOptions:
         self.project_md_formatted_results_dir = os.path.join(project_dir,'md_formatted_results')
 
         self.n_cores_patch_generation = 16
+        self.yolo_category_id_to_name = default_yolo_category_id_to_name
 
 
 #%% Validate class names if requested
 
 # It's only really useful to do this on the training machine
-
-expected_yolo_category_id_to_name = \
-{
-    0: 'Brant',
-    1: 'Other',
-    2: 'Gull',
-    3: 'Canada',
-    4: 'Emperor'
-}
 
 if validate_against_dataset_file:
     
@@ -188,13 +187,9 @@ if validate_against_dataset_file:
     
     dataset_definition_file = os.path.expanduser('~/data/usgs-geese/dataset.yaml')  
     yolo_category_id_to_name = read_classes_from_yolo_dataset_file(dataset_definition_file)
-    assert yolo_category_id_to_name == expected_yolo_category_id_to_name, \
+    assert yolo_category_id_to_name == default_yolo_category_id_to_name, \
         'Error validating YOLO category list'
 
-else:
-    
-    yolo_category_id_to_name = expected_yolo_category_id_to_name
-    
 # As far as I can tell, this model does not have the class names saved, so just noting to self
 # that I tried this:
 #
@@ -206,109 +201,6 @@ else:
 
 #%% Support functions
 
-def get_patch_boundaries(image_size,patch_size,patch_stride=None,allow_variable_image_size=True):
-    """
-    Get a list of patch starting coordinates (x,y) given an image size
-    and a stride.  Stride defaults to half the patch size.
-    
-    Patch size is guaranteed, stride may deviate to make sure all pixels are covered.
-    I.e., we move by regular strides until the current patch walks off the right/bottom,
-    at which point it backs up to one patch from the end.  So if your image is 15
-    pixels wide and you have a stride of 10 pixels, you will get starting positions 
-    of 0 (from 0 to 9) and 5 (from 5 to 14).
-    """
-    
-    if patch_stride is None:
-        patch_stride = (round(patch_size[0]*(1.0-default_patch_overlap)),
-                        round(patch_size[1]*(1.0-default_patch_overlap)))
-        
-    image_width = image_size[0]
-    image_height = image_size[1]
-        
-    def add_patch_row(patch_start_positions,y_start):
-        """
-        Add one row to our list of patch start positions, i.e.
-        loop over all columns.
-        """
-        
-        x_start = 0; x_end = x_start + patch_size[0] - 1
-        
-        while(True):
-            
-            patch_start_positions.append([x_start,y_start])
-            
-            # If this patch put us right at the end of the last column, we're done
-            if x_end == image_width - 1:
-                break
-            
-            # Move one patch to the right
-            x_start += patch_stride[0]
-            x_end = x_start + patch_size[0] - 1
-             
-            # If this patch flows over the edge, add one more patch to cover
-            # the pixels on the end, then we're done.
-            if x_end > (image_width - 1):
-                overshoot = (x_end - image_width) + 1
-                x_start -= overshoot
-                x_end = x_start + patch_size[0] - 1
-                patch_start_positions.append([x_start,y_start])
-                break
-        
-        # ...for each column
-        
-        return patch_start_positions
-        
-    patch_start_positions = []
-    
-    y_start = 0; y_end = y_start + patch_size[1] - 1
-    
-    while(True):
-    
-        patch_start_positions = add_patch_row(patch_start_positions,y_start)
-        
-        # If this patch put us right at the bottom of the lats row, we're done
-        if y_end == image_height - 1:
-            break
-        
-        # Move one patch down
-        y_start += patch_stride[1]
-        y_end = y_start + patch_size[1] - 1
-        
-        # If this patch flows over the bottom, add one more patch to cover
-        # the pixels at the bottom, then we're done
-        if y_end > (image_height - 1):
-            overshoot = (y_end - image_height) + 1
-            y_start -= overshoot
-            y_end = y_start + patch_size[1] - 1
-            patch_start_positions = add_patch_row(patch_start_positions,y_start)
-            break
-    
-    # ...for each row
-    
-    # The last patch should always end at the bottom-right of the image
-    assert patch_start_positions[-1][0]+patch_size[0] == image_width, \
-        'Patch generation error (last patch does not end on the right)'
-    assert patch_start_positions[-1][1]+patch_size[1] == image_height, \
-        'Patch generation error (last patch does not end at the bottom)'
-    
-    # All patches should be unique
-    patch_start_positions_tuples = [tuple(x) for x in patch_start_positions]
-    assert len(patch_start_positions_tuples) == len(set(patch_start_positions_tuples)), \
-        'Patch generation error (duplicate start position)'
-    
-    return patch_start_positions
-
-
-def relative_path_to_image_name(rp):
-    """
-    Given a full path name, replace slashes and backslashes with underscores, so we can
-    use the result as a filename.
-    """
-    
-    image_name = rp.lower().replace('\\','/').replace('/','_')
-    return image_name
-
-
 def patch_info_to_patch_name(image_name,patch_x_min,patch_y_min):
     
     patch_name = image_name + '_' + \
@@ -316,7 +208,7 @@ def patch_info_to_patch_name(image_name,patch_x_min,patch_y_min):
     return patch_name
 
 
-def extract_patch_from_image(im,patch_xy,
+def extract_patch_from_image(im,patch_xy,patch_wh,
                              patch_image_fn=None,patch_folder=None,image_name=None,overwrite=True):
     """
     Extracts a patch from the provided image, writing the patch out to patch_image_fn.  im
@@ -336,8 +228,8 @@ def extract_patch_from_image(im,patch_xy,
         
     patch_x_min = patch_xy[0]
     patch_y_min = patch_xy[1]
-    patch_x_max = patch_x_min + patch_size[0] - 1
-    patch_y_max = patch_y_min + patch_size[1] - 1
+    patch_x_max = patch_x_min + patch_wh[0] - 1
+    patch_y_max = patch_y_min + patch_wh[1] - 1
 
     # PIL represents coordinates in a way that is very hard for me to get my head
     # around, such that even though the "right" and "bottom" arguments to the crop()
@@ -347,8 +239,8 @@ def extract_patch_from_image(im,patch_xy,
     #
     # So we add 1 to the max values.
     patch_im = pil_im.crop((patch_x_min,patch_y_min,patch_x_max+1,patch_y_max+1))
-    assert patch_im.size[0] == patch_size[0], 'Illegal patch size'
-    assert patch_im.size[1] == patch_size[1], 'Illegal patch size'
+    assert patch_im.size[0] == patch_wh[0], 'Illegal patch size'
+    assert patch_im.size[1] == patch_wh[1], 'Illegal patch size'
 
     if patch_image_fn is None:
         assert patch_folder is not None,\
@@ -398,7 +290,7 @@ def extract_patches_for_image(image_fn,patch_folder,image_name_base=None,
         image_name_base = os.path.dirname(image_fn)
         
     image_relative_path = os.path.relpath(image_fn,image_name_base)    
-    image_name = relative_path_to_image_name(image_relative_path)
+    image_name = path_utils.clean_filename(image_relative_path,char_limit=None,force_lower=True)
     
     pil_im = vis_utils.open_image(image_fn)
     if not allow_variable_image_size:
@@ -408,15 +300,15 @@ def extract_patches_for_image(image_fn,patch_folder,image_name_base=None,
     image_width = pil_im.size[0]
     image_height = pil_im.size[1]
     image_size = (image_width,image_height)
-    patch_start_positions = get_patch_boundaries(image_size,patch_size,patch_stride=None,
-                                                 allow_variable_image_size=allow_variable_image_size)
+    patch_start_positions = get_patch_boundaries(image_size,patch_size,
+                                                 patch_stride=(1.0-default_patch_overlap))
     
     patches = []
     
     # i_patch = 0; patch_xy = patch_start_positions[i_patch]
     for i_patch,patch_xy in enumerate(patch_start_positions):        
         patch_info = extract_patch_from_image(
-            pil_im,patch_xy,
+            pil_im,patch_xy,patch_size,
             patch_image_fn=None,patch_folder=patch_folder,
             image_name=image_name,overwrite=overwrite)
         patch_info['image_fn'] = image_fn
@@ -520,6 +412,7 @@ def create_yolo_dataset_file(dataset_file,symlink_dir,yolo_category_id_to_name):
             f.write('  {}: {}\n'.format(category_id,yolo_category_id_to_name[category_id]))
     
 
+
 def run_yolo_model(project_dir,run_name,dataset_file,model_file,yolo_working_dir,
                    execute=True,augment=True,device_string='0',
                    batch_size=default_inference_batch_size,
@@ -564,63 +457,6 @@ def run_yolo_model(project_dir,run_name,dataset_file,model_file,yolo_working_dir
     return cmd
 
 # ...run_yolo_model()
-
-
-def in_place_nms(md_results, iou_thres=0.45, verbose=True):
-    """
-    Run torch.ops.nms in-place on MD-formatted detection results    
-    """
-    
-    n_detections_before = 0
-    n_detections_after = 0
-    
-    # i_image = 18; im = md_results['images'][i_image]
-    for i_image,im in tqdm(enumerate(md_results['images']),total=len(md_results['images'])):
-        
-        if len(im['detections']) == 0:
-            continue
-    
-        boxes = []
-        scores = []
-        
-        n_detections_before += len(im['detections'])
-        
-        # det = im['detections'][0]
-        for det in im['detections']:
-            
-            # Using x1/x2 notation rather than x0/x1 notation to be consistent
-            # with the Torch documentation.
-            x1 = det['bbox'][0]
-            y1 = det['bbox'][1]
-            x2 = det['bbox'][0] + det['bbox'][2]
-            y2 = det['bbox'][1] + det['bbox'][3]
-            box = [x1,y1,x2,y2]
-            boxes.append(box)
-            scores.append(det['conf'])
-
-        # ...for each detection
-        
-        t_boxes = torch.tensor(boxes)
-        t_scores = torch.tensor(scores)
-        
-        box_indices = ops.nms(t_boxes,t_scores,iou_thres).tolist()
-        
-        post_nms_detections = [im['detections'][x] for x in box_indices]
-        
-        assert len(post_nms_detections) <= len(im['detections']), 'NMS validation error'
-        
-        im['detections'] = post_nms_detections
-        
-        n_detections_after += len(im['detections'])
-        
-    # ...for each image
-    
-    if verbose:
-        print('NMS removed {} of {} detections'.format(
-            n_detections_before-n_detections_after,
-            n_detections_before))
-        
-# ...in_place_nms()
 
 
 #%% The main function: run the model recursively on  folder
@@ -728,7 +564,8 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     if not inference_options.allow_variable_image_size:
         n_patches_per_image = len(get_patch_boundaries(
             (expected_image_width,expected_image_height),
-            patch_size,patch_stride=None))
+            patch_size,
+            patch_stride=(1.0-default_patch_overlap)))
         assert len(all_patch_files) == n_patches_per_image * len(images_relative), \
             'Unexpected number of patches'
     
@@ -789,7 +626,8 @@ def run_model_on_folder(input_folder_base,inference_options=None):
                 
         chunk['dataset_file'] = os.path.join(folder_dataset_file_dir,chunk['chunk_id'] + '_dataset.yaml')
         print('Writing dataset file for chunk {} to {}'.format(i_chunk,chunk['dataset_file']))
-        create_yolo_dataset_file(chunk['dataset_file'],chunk['symlink_dir'],yolo_category_id_to_name)
+        create_yolo_dataset_file(chunk['dataset_file'],chunk['symlink_dir'],
+                                 inference_options.yolo_category_id_to_name)
     
         
     ##%% Prepare commands to run the model on symlink folder(s)
@@ -948,7 +786,7 @@ def run_model_on_folder(input_folder_base,inference_options=None):
             yolo_json_output_to_md_output(yolo_json_file,
                                           image_folder=patch_folder_for_folder,
                                           output_file=md_formatted_results_file,
-                                          yolo_category_id_to_name=yolo_category_id_to_name,
+                                          yolo_category_id_to_name=inference_options.yolo_category_id_to_name,
                                           detector_name=model_short_name,
                                           image_id_to_relative_path=patch_id_to_relative_path,
                                           offset_yolo_class_ids=False)
@@ -1231,16 +1069,7 @@ def run_model_on_folder(input_folder_base,inference_options=None):
         print('Bypassing cleanup of inference scripts')
     
     if 'patches' in inference_options.cleanup_targets:
-        if os.path.isdir(patch_folder_for_folder):
-            
-            # TODO: leaf-node folders should end in JPG, and all files should be .jpg
-            if False:
-                patches = os.listdir(patch_folder_for_folder)
-                patches = [os.path.join(patch_folder_for_folder,fn) for fn in patches]
-                
-                # Each of these a folder with a .JPG extension, so both of the following should be true
-                assert all([os.path.isdir(fn) for fn in patches])
-                assert all([path_utils.is_image_file(fn) for fn in patches])        
+        if os.path.isdir(patch_folder_for_folder):            
             safe_delete(patch_folder_for_folder)
     else:
         print('Bypassing cleanup of patches')
@@ -1258,8 +1087,9 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     if 'yolo_results' in inference_options.cleanup_targets:
         if os.path.isdir(folder_yolo_results_dir):
             yolo_results_folders = os.listdir(folder_yolo_results_dir)
-            assert all([os.path.isdir(os.path.join(folder_yolo_results_dir,fn)) for fn in yolo_results_folders]), \
-                'YOLO results folder validation error during cleanup'
+            assert all([os.path.isdir(os.path.join(folder_yolo_results_dir,fn)) for \
+                        fn in yolo_results_folders]), \
+                        'YOLO results folder validation error during cleanup'
             assert all([fn.startswith('inference-output') for fn in yolo_results_folders]), \
                 'Inference output folder validation error during cleanup'
             safe_delete(folder_yolo_results_dir)
@@ -1415,6 +1245,8 @@ if False:
     image_fn_relative = md_results_image_level['images'][i_image]['file']
     image_fn = os.path.join(input_folder_base,image_fn_relative)
     assert os.path.isfile(image_fn)
+    
+    yolo_category_id_to_name = default_yolo_category_id_to_name
     
     detector_label_map = {}
     for category_id in yolo_category_id_to_name:
