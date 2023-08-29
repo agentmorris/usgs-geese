@@ -7,6 +7,8 @@
 # * Generating preview pages
 # * Generating per-image bird counts
 #
+# This script is really just a command-line wrapper for usgs-geese-postprocessing.py.
+#
 ########
 
 #%% Imports and constants
@@ -123,10 +125,9 @@ if False:
     
     n_patches = 2000
     confidence_thresholds = [0.6] # [0.2,0.3,0.4,0.5,0.6]
-    results_file = r"g:\temp\usgs-geese-inference-test\image_level_results\_temp_wdfw-brant-images_md_results_image_level_nms.json"
-    # results_file = r"g:\temp\usgs-geese-inference-test\image_level_results\_temp_wdfw-brant-images_md_results_image_level.json"
+    results_file = r'g:\temp\wdfw-results-nms.json'
     image_folder = r"g:\temp\wdfw-brant-images"
-    preview_folder = r"g:\temp\wdfw-test-preview-with-aug"
+    preview_folder = r"g:\temp\wdfw-test-preview"
     script_name = 'izembek-model-postprocessing.py'
     
     threshold_string = ' '.join([str(t) for t in confidence_thresholds])
@@ -140,7 +141,7 @@ if False:
     #%% CSV testing
     
     confidence_thresholds = [0.2,0.3,0.4,0.5,0.6]
-    results_file = r"g:\temp\usgs-geese-inference-test\image_level_results\_temp_wdfw-brant-images_md_results_image_level_nms.json"
+    results_file = r'g:\temp\wdfw-results-nms.json'
     output_file = results_file + '.csv'
     script_name = 'izembek-model-postprocessing.py'
     

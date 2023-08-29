@@ -158,7 +158,7 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
         patch_xy = patch[1]
         
         # Generate a usable filename for this patch
-        image_name = usgs_geese_inference.relative_path_to_image_name(image_fn_relative)
+        image_name = path_utils.clean_filename(image_fn_relative,force_lower=True)
         patch_fn_relative = usgs_geese_inference.patch_info_to_patch_name(
             os.path.splitext(image_name)[0],patch_xy[0],patch_xy[1]) + '.jpg'
         patch_fn_absolute = os.path.join(patch_folder,patch_fn_relative)
@@ -170,7 +170,7 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
         assert im_results['h'] == pil_im.size[1], 'Image size error'
         
         # Extract the patch
-        _ = usgs_geese_inference.extract_patch_from_image(pil_im,patch_xy,
+        _ = usgs_geese_inference.extract_patch_from_image(pil_im,patch_xy,patch_size,
                                      patch_image_fn=patch_fn_absolute,
                                      patch_folder=None,image_name=None,overwrite=True)
         
