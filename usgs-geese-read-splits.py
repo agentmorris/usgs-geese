@@ -24,7 +24,7 @@ training_folder_train = os.path.join(training_folder_base,'yolo_train')
 
 assert all([os.path.isdir(fn) for fn in (training_folder_train,training_folder_val)])
 
-image_folder_base = '/media/user/My Passport1/2017-2019/01_JPGs'
+image_folder_base = '/media/user/My Passport/2017-2019/01_JPGs'
 assert os.path.isdir(image_folder_base)
 assert image_folder_base[-1] != '/'
 

@@ -110,11 +110,14 @@ else:
 #%% Options management
 
 class USGSGeeseInferenceOptions:
-                
+    """
+    All of these options map to command-line options to run_izembek_model.py, so I'm
+    not documenting them (again) here.
+    """
+       
     def __init__(self, project_dir=None,yolo_working_dir=None,model_file=None,
                  devices=None,recursive=True,allow_variable_image_size=True,
                  use_symlinks=True,no_cleanup=False,no_augment=False):
-    
         if project_dir is None:
             self.project_dir = default_project_dir
         else:
@@ -1126,138 +1129,12 @@ if False:
     
     pass
 
-    #%%
+    #%% Run the model programmatically on one folder
     
-    # input_folder_base = '/media/user/My Passport/2017-2019/01_JPGs/2017/Replicate_2017-10-01/Cam1'
-    # input_folder_base = '/media/user/My Passport/2022-10-09/cam3'
-    # input_folder_base = '/home/user/data/usgs-test-folder'
-    
-    # input_folder_base = '/media/user/My Passport/2022-10-11'
-    # input_folder_base = '/media/user/My Passport/2022-10-09'
-    # input_folder_base = '/media/user/My Passport/2022-10-12'
-    # input_folder_base = '/media/user/My Passport/2022-10-16'
-    # input_folder_base = '/media/user/My Passport/2022-10-17'
     # input_folder_base = '/home/user/data/usgs-geese/eval_images'
     input_folder_base = '/media/user/My Passport1/2017-2019/01_JPGs/2017/Replicate_2017-10-03'
-        
+    
+    inference_options = USGSGeeseInferenceOptions()
+    
     results = run_model_on_folder(input_folder_base,recursive=True)
     
-
-#%% Scrap
-
-if False:
-
-    pass
-    
-    #%% Time estimates
-    
-    # Time to process all patches for an image on a single GPU
-    seconds_per_image = 25
-    n_workers = 2
-    seconds_per_image /= n_workers
-    
-    drive_base = '/media/user/My Passport'
-    
-    estimate_time_for_old_data = False
-    
-    if estimate_time_for_old_data:
-        base_folder = os.path.join(drive_base,'2017-2019')
-        image_folder = os.path.join(base_folder,'01_JPGs')
-        image_folder_name = image_folder
-        images_absolute = path_utils.find_images(image_folder,recursive=True)
-    else:
-        images_absolute = []
-        image_folder_name = '2022 images'
-        root_filenames = os.listdir(drive_base)
-        for fn in root_filenames:
-            if fn.startswith('2022'):
-                dirname = os.path.join(drive_base,fn)
-                if os.path.isdir(dirname):
-                    images_absolute.extend(path_utils.find_images(dirname,recursive=True))        
-    
-    total_time_seconds = seconds_per_image * len(images_absolute)
-    
-    print('Expected time for {} ({} images): {}'.format(
-        image_folder_name,len(images_absolute),humanfriendly.format_timespan(total_time_seconds)))
-    
-    
-    #%% Unused variable suppression
-    
-    patch_results_after_nms_file = None
-    patch_folder_for_folder = None
-    
-    
-    #%% Preview results for patches at a variety of confidence thresholds
-    
-    project_dir = None
-    patch_results_file = patch_results_after_nms_file
-            
-    from api.batch_processing.postprocessing.postprocess_batch_results import (
-        PostProcessingOptions, process_batch_results)
-    
-    postprocessing_output_folder = os.path.join(project_dir,'preview')
-
-    base_task_name = os.path.basename(patch_results_file)
-        
-    for confidence_threshold in [0.4,0.5,0.6,0.7,0.8]:
-        
-        options = PostProcessingOptions()
-        options.image_base_dir = patch_folder_for_folder
-        options.include_almost_detections = True
-        options.num_images_to_sample = 7500
-        options.confidence_threshold = confidence_threshold
-        options.almost_detection_confidence_threshold = options.confidence_threshold - 0.05
-        options.ground_truth_json_file = None
-        options.separate_detections_by_category = True
-        # options.sample_seed = 0
-        
-        options.parallelize_rendering = True
-        options.parallelize_rendering_n_cores = 16
-        options.parallelize_rendering_with_threads = False
-        
-        output_base = os.path.join(postprocessing_output_folder,
-            base_task_name + '_{:.3f}'.format(options.confidence_threshold))
-        
-        os.makedirs(output_base, exist_ok=True)
-        print('Processing to {}'.format(output_base))
-        
-        options.api_output_file = patch_results_file
-        options.output_dir = output_base
-        ppresults = process_batch_results(options)
-        html_output_file = ppresults.output_html_file
-        
-        path_utils.open_file(html_output_file)
-    
-
-    #%% Render boxes on one of the original images
-    
-    input_folder_base = '/media/user/My Passport/2022-10-09/cam3'
-    md_results_image_level_nms_fn = os.path.expanduser(
-        '~/tmp/usgs-inference/image_level_results/'+ \
-        'media_user_My_Passport_2022-10-09_cam3_md_results_image_level_nms.json')
-    
-    with open(md_results_image_level_nms_fn,'r') as f:
-        md_results_image_level = json.load(f)
-
-    i_image = 0
-    output_image_file = os.path.join(project_dir,'test.jpg')
-    detections = md_results_image_level['images'][i_image]['detections']    
-    image_fn_relative = md_results_image_level['images'][i_image]['file']
-    image_fn = os.path.join(input_folder_base,image_fn_relative)
-    assert os.path.isfile(image_fn)
-    
-    yolo_category_id_to_name = default_yolo_category_id_to_name
-    
-    detector_label_map = {}
-    for category_id in yolo_category_id_to_name:
-        detector_label_map[str(category_id)] = yolo_category_id_to_name[category_id]
-        
-    vis_utils.draw_bounding_boxes_on_file(input_file=image_fn,
-                          output_file=output_image_file,
-                          detections=detections,
-                          confidence_threshold=0.4,
-                          detector_label_map=detector_label_map, 
-                          thickness=1, 
-                          expansion=0)
-    
-    path_utils.open_file(output_image_file)

@@ -40,7 +40,7 @@ with open(val_images_list_file,'r') as f:
 with open(train_images_list_file,'r') as f:
     train_images_relative = json.load(f)
 
-n_unused_images_to_sample = 1000
+n_unused_images_to_sample = None
 
 images_copied = set()
 
@@ -78,6 +78,11 @@ for fn in tqdm(val_images_relative):
 
 #%% Find N random files that are in neither the val nor train data
 
+# Default to sampling a number of unused images that's equal to the number of
+# val images
+if n_unused_images_to_sample is None:
+    n_unused_images_to_sample = len(val_images_relative)
+    
 import random
 from md_utils import path_utils
 

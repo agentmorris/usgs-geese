@@ -144,6 +144,13 @@ plt.show()
 
 fig,ax = plt.subplots()
 
+df.plot(x = 'epoch', y = 'val/cls_loss', ax = ax) 
+df.plot(x = 'epoch', y = 'train/cls_loss', ax = ax) 
+
+plt.show()
+
+fig,ax = plt.subplots()
+
 df.plot(x = 'epoch', y = 'metrics/precision', ax = ax) 
 df.plot(x = 'epoch', y = 'metrics/recall', ax = ax) 
 df.plot(x = 'epoch', y = 'metrics/mAP_0.5', ax = ax) 
@@ -151,11 +158,13 @@ df.plot(x = 'epoch', y = 'metrics/mAP_0.5:0.95', ax = ax)
 
 plt.show()
 
+# plt.close('all')
+
 
 #%% Back up trained weights
 
 """
-TRAINING_RUN_NAME="usgs-geese-yolov5x6-b8-img1280-e100"
+TRAINING_RUN_NAME="usgs-geese-yolov5x-230820-b8-img1280-e200"
 TRAINING_OUTPUT_FOLDER="/home/user/git/yolov5-current/usgs-geese/${TRAINING_RUN_NAME}/weights"
 
 cp ${TRAINING_OUTPUT_FOLDER}/best.pt ~/models/usgs-geese/${TRAINING_RUN_NAME}-best.pt
@@ -171,8 +180,16 @@ import os
 
 model_base = os.path.expanduser('~/models/usgs-geese')
 training_run_names = [
+    # This is the "round 1" model
     'usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss',
-    'usgs-geese-yolov5x6-b8-img1280-e49-of-200-20230401-dm'
+    
+    # This is the "round 2" model, after cleaning up my training data bug
+    'usgs-geese-yolov5x-230820-b8-img1280-e200',
+    
+    # Somewhere around 70% of the way through "round 2", I captured a checkpoint.
+    # I'm *slightly* suspicious of how YOLOv5 chooses the "best" checkpoint, so I 
+    # want to evaluate this as well.
+    'usgs-geese-yolov5x-230820-b8-img1280-2023.09.02'
 ]
 
 data_folder = os.path.expanduser('~/data/usgs-geese')
@@ -184,56 +201,59 @@ batch_size_val = 8
 
 project_name = os.path.expanduser('~/tmp/usgs-geese-val')
 data_file = os.path.join(data_folder,'dataset.yaml')
-augment = True
+augment_flags = [True,False]
 
 assert os.path.isfile(data_file)
 
-model_file_to_command = {}
+commands = []
+
+n_devices = 2
 
 # training_run_name = training_run_names[0]
 for training_run_name in training_run_names:
-    model_file_base = os.path.join(model_base,training_run_name)
-    model_files = [model_file_base + s for s in ('-last.pt','-best.pt')]
     
-    # model_file = model_files[0]
-    for model_file in model_files:
-        assert os.path.isfile(model_file)
+    for augment in augment_flags:
         
-        model_short_name = os.path.basename(model_file).replace('.pt','')
-        cmd = 'python val.py --img {} --batch-size {} --weights {} --project {} --name {} --data {} --save-txt --save-json --save-conf --exist-ok'.format(
-            image_size,batch_size_val,model_file,project_name,model_short_name,data_file)        
-        if augment:
-            cmd += ' --augment'
-        model_file_to_command[model_file] = cmd
+        model_file_base = os.path.join(model_base,training_run_name)
+        model_files = [model_file_base + s for s in ('-last.pt','-best.pt')]
         
-    # ...for each model
+        # model_file = model_files[0]
+        for model_file in model_files:
+            
+            assert os.path.isfile(model_file)
+            
+            model_short_name = os.path.basename(model_file).replace('.pt','')
+            
+            cuda_index = len(commands) % n_devices
+            cuda_string = 'CUDA_VISIBLE_DEVICES={}'.format(cuda_index)
+            cmd = cuda_string + \
+                ' python val.py --img {} --batch-size {} --weights {} --project {} --name {} --data {} --save-txt --save-json --save-conf --exist-ok'.format(
+                image_size,batch_size_val,model_file,project_name,model_short_name,data_file)        
+            if augment:
+                cmd += ' --augment'
+            commands.append(cmd)
+
+        # ...for each model
+    
+    # ...augment on/off        
     
 # ...for each training run    
 
-for k in model_file_to_command.keys():
-    # print(os.path.basename(k))
+for cmd in commands:
     print('')
-    cmd = model_file_to_command[k]
     print(cmd + '\n')
     
+
+pass
+
+
+#%% First model (20% val)
 
 """
 Results without augmentation
 """
 
 """
-usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-last.pt
-
-  Class     Images  Instances          P          R      mAP50   mAP50-95:
-    all      11547     136014      0.591      0.562      0.513      0.287
-  Brant      11547     101770      0.877      0.919      0.901       0.53
-  Other      11547      21246      0.694       0.35      0.398      0.223
-   Gull      11547       1594      0.481      0.561      0.422      0.204
- Canada      11547      10961      0.761      0.793      0.783      0.445
-Emperor      11547        443      0.141      0.187     0.0619     0.0325
-Speed: 0.5ms pre-process, 53.6ms inference, 0.9ms NMS per image at shape (8, 3, 1280, 1280)
-
-
 usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt
 
   Class     Images  Instances          P          R      mAP50   mAP50-95:
@@ -245,30 +265,6 @@ usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt
 Emperor      11547        443       0.12      0.147      0.074     0.0372
 Speed: 0.5ms pre-process, 53.8ms inference, 1.1ms NMS per image at shape (8, 3, 1280, 1280)
 
-
-usgs-geese-yolov5x6-b8-img1280-e49-of-200-20230401-dm-last.pt
-
-  Class     Images  Instances          P          R      mAP50   mAP50-95:
-    all      11547     136014      0.621      0.559      0.536       0.29
-  Brant      11547     101770      0.865      0.925      0.908       0.53
-  Other      11547      21246      0.742      0.355       0.42      0.214
-   Gull      11547       1594      0.601      0.523      0.442      0.203
- Canada      11547      10961      0.776      0.848      0.839      0.467
-Emperor      11547        443      0.119      0.142     0.0708     0.0356
-Speed: 0.5ms pre-process, 53.5ms inference, 1.2ms NMS per image at shape (8, 3, 1280, 1280)
-
-
-usgs-geese-yolov5x6-b8-img1280-e49-of-200-20230401-dm-best.pt
-
-  Class     Images  Instances          P          R      mAP50   mAP50-95:
-    all      11547     136014      0.621      0.559      0.536       0.29
-  Brant      11547     101770      0.865      0.926      0.908       0.53
-  Other      11547      21246      0.742      0.355       0.42      0.214
-   Gull      11547       1594      0.601      0.523      0.442      0.203
- Canada      11547      10961      0.776      0.848      0.839      0.467
-Emperor      11547        443      0.119      0.142     0.0708     0.0356
-Speed: 0.5ms pre-process, 53.2ms inference, 1.1ms NMS per image at shape (8, 3, 1280, 1280)
-
 """
 
 """
@@ -276,17 +272,6 @@ Results with augmentation
 """
 
 """
-usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-last.pt
-
-Class     Images  Instances          P          R      mAP50   mAP50-95:
-    all      11547     136014      0.587      0.565      0.515      0.324
-  Brant      11547     101770      0.868      0.924      0.899      0.572
-  Other      11547      21246      0.689      0.357      0.392      0.233
-   Gull      11547       1594      0.486      0.551      0.435      0.283
- Canada      11547      10961      0.755      0.809      0.792      0.497
-Emperor      11547        443      0.135      0.183     0.0579     0.0336
-
-  
 usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt
 
   Class     Images  Instances          P          R      mAP50   mAP50-95:
@@ -297,49 +282,166 @@ usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt
  Canada      11547      10961      0.764      0.857      0.849      0.513
 Emperor      11547        443      0.118       0.14     0.0731      0.041
 Speed: 0.5ms pre-process, 118.5ms inference, 1.8ms NMS per image at shape (8, 3, 1280, 1280)
-
-
-usgs-geese-yolov5x6-b8-img1280-e49-of-200-20230401-dm-last.pt
-
-  Class     Images  Instances          P          R      mAP50   mAP50-95:
-    all      11547     136014      0.607      0.561      0.531      0.326
-  Brant      11547     101770      0.852      0.928      0.908      0.571
-  Other      11547      21246      0.738      0.361       0.41      0.226
-   Gull      11547       1594      0.564      0.529      0.423      0.274
- Canada      11547      10961      0.769      0.857      0.843       0.52
-Emperor      11547        443      0.112      0.132     0.0694     0.0403
-Speed: 0.5ms pre-process, 118.5ms inference, 1.7ms NMS per image at shape (8, 3, 1280, 1280)
-
-
-usgs-geese-yolov5x6-b8-img1280-e49-of-200-20230401-dm-best.pt
-
- Class     Images  Instances          P          R      mAP50   mAP50-95:
-    all      11547     136014      0.607      0.561      0.531      0.326
-  Brant      11547     101770      0.852      0.928      0.908      0.571
-  Other      11547      21246      0.738      0.361       0.41      0.226
-   Gull      11547       1594      0.564      0.529      0.423      0.274
- Canada      11547      10961      0.769      0.857      0.843       0.52
-Emperor      11547        443      0.112      0.132     0.0694     0.0403
-
 """
 
-"""
-cd ~/git/yolov5-current
-mamba activate yolov5
-LD_LIBRARY_PATH=
-export PYTHONPATH=
-"""
+
+#%% Second model (15% val, not a subset of the first model's val, so not trivially comparable)
+
+# Reported at the end of training
 
 """
-TRAINING_RUN_NAME="usgs-geese-yolov5x6-b8-img1280-e100"
-MODEL_FILE="/home/user/models/usgs-geese/${TRAINING_RUN_NAME}-best.pt"
-DATA_FOLDER="/home/user/data/usgs-geese"
-
-python val.py --img 1280 --batch-size 8 --weights ${MODEL_FILE} --project usgs-geese --name ${TRAINING_RUN_NAME} --data ${DATA_FOLDER}/dataset.yaml 
+Validating usgs-geese/usgs-geese-yolov5x-230820-b8-img1280-e200/weights/best.pt...
+Fusing layers...
+Model summary: 416 layers, 140009320 parameters, 0 gradients, 208.0 GFLOPs
+                 Class     Images  Instances          P          R      mAP50   mAP50-95
+                   all       8623      99870      0.888      0.867      0.885      0.545
+                 Brant       8623      80777      0.951      0.932      0.952      0.621
+                 Other       8623       6180      0.862      0.743       0.83      0.475
+                  Gull       8623       1008      0.927      0.927      0.933      0.558
+                Canada       8623      11243      0.911      0.928       0.94      0.611
+               Emperor       8623        662       0.79      0.805       0.77      0.459
 """
 
-pass
 
+# ss-last w/aug (in this case, this val set includes some of the model's training data)
+"""
+Model summary: 416 layers, 140009320 parameters, 0 gradients, 208.0 GFLOPs
+val: Scanning /home/user/data/usgs-geese/yolo_val.cache... 8623 images, 0 backgrounds, 0
+                 Class     Images  Instances          P          R      mAP50   mAP50-95
+                   all       8623      99870      0.667       0.77      0.678      0.437
+                 Brant       8623      80777      0.938      0.882      0.926       0.59
+                 Other       8623       6180      0.631      0.739      0.663      0.419
+                  Gull       8623       1008      0.314      0.765      0.466      0.321
+                Canada       8623      11243      0.818      0.751      0.803      0.516
+               Emperor       8623        662      0.634      0.716      0.531       0.34
+Speed: 0.5ms pre-process, 115.4ms inference, 1.5ms NMS per image at shape (8, 3, 1280, 1280)
+"""
+
+# ss-best w/aug (in this case, this val set includes some of the model's training data)
+"""
+Model summary: 416 layers, 140009320 parameters, 0 gradients, 208.0 GFLOPs
+val: Scanning /home/user/data/usgs-geese/yolo_val.cache... 8623 images, 0 backgrounds, 0 
+                 Class     Images  Instances          P          R      mAP50   mAP50-95
+                   all       8623      99870      0.744      0.751      0.763      0.461
+                 Brant       8623      80777      0.939      0.886      0.943      0.576
+                 Other       8623       6180      0.806      0.706      0.786      0.449
+                  Gull       8623       1008      0.429       0.75      0.621        0.4
+                Canada       8623      11243      0.923       0.79      0.912      0.553
+               Emperor       8623        662      0.624      0.624      0.551      0.328
+Speed: 0.9ms pre-process, 120.7ms inference, 2.2ms NMS per image at shape (8, 3, 1280, 1280)
+"""
+
+# ss-last no aug (in this case, this val set includes some of the model's training data)
+"""
+val: Scanning /home/user/data/usgs-geese/yolo_val.cache... 8623 images, 0 backgrounds, 0 corrupt
+                 Class     Images  Instances          P          R      mAP50   mAP50-95
+                   all       8623      99870        0.7      0.821      0.761      0.418
+                 Brant       8623      80777      0.932      0.909      0.944      0.539
+                 Other       8623       6180      0.671      0.753      0.778      0.411
+                  Gull       8623       1008      0.407      0.889      0.615       0.31
+                Canada       8623      11243      0.866      0.874      0.915      0.519
+               Emperor       8623        662      0.622      0.678      0.553      0.311
+Speed: 0.9ms pre-process, 85.5ms inference, 1.4ms NMS per image at shape (8, 3, 1280, 1280)
+"""
+
+# ss-best no aug (in this case, this val set includes some of the model's training data)
+"""
+val: Scanning /home/user/data/usgs-geese/yolo_val.cache... 8623 images, 0 backgrounds, 0 corrupt
+                 Class     Images  Instances          P          R      mAP50   mAP50-95
+                   all       8623      99870      0.668       0.77      0.671      0.393
+                 Brant       8623      80777      0.938      0.879      0.929      0.549
+                 Other       8623       6180      0.631      0.737      0.662      0.387
+                  Gull       8623       1008      0.315      0.761      0.422      0.227
+                Canada       8623      11243      0.821      0.754      0.811       0.48
+               Emperor       8623        662      0.637      0.719      0.532      0.323
+Speed: 0.5ms pre-process, 83.4ms inference, 1.0ms NMS per image at shape (8, 3, 1280, 1280)
+"""
+
+# 230820-last w/aug
+"""
+val: Scanning /home/user/data/usgs-geese/yolo_val.cache... 8623 images, 0 backgrounds, 0 corrupt
+                 Class     Images  Instances          P          R      mAP50   mAP50-95
+                   all       8623      99870      0.872      0.866      0.876      0.549
+                 Brant       8623      80777      0.937       0.92      0.943      0.606
+                 Other       8623       6180      0.839      0.758      0.814       0.46
+                  Gull       8623       1008      0.891      0.922      0.935      0.624
+                Canada       8623      11243       0.91      0.916      0.929      0.604
+               Emperor       8623        662      0.784      0.816      0.762       0.45
+Speed: 0.5ms pre-process, 202.7ms inference, 0.9ms NMS per image at shape (8, 3, 1280, 1280)
+"""
+
+# 230820-best w/aug
+"""
+val: Scanning /home/user/data/usgs-geese/yolo_val.cache... 8623 images, 0 backgrounds, 0 corrupt
+                 Class     Images  Instances          P          R      mAP50   mAP50-95
+                   all       8623      99870      0.887       0.87      0.891      0.576
+                 Brant       8623      80777      0.955      0.931      0.954      0.634
+                 Other       8623       6180       0.86      0.763      0.843      0.503
+                  Gull       8623       1008      0.907      0.929      0.938      0.646
+                Canada       8623      11243      0.916      0.919      0.942      0.629
+               Emperor       8623        662      0.796      0.806      0.778      0.467
+Speed: 0.9ms pre-process, 209.4ms inference, 1.3ms NMS per image at shape (8, 3, 1280, 1280)
+"""
+
+# 230820-last no aug
+"""
+val: Scanning /home/user/data/usgs-geese/yolo_val.cache... 8623 images, 0 backgrounds, 0 corrupt
+                 Class     Images  Instances          P          R      mAP50   mAP50-95
+                   all       8623      99870      0.877      0.857       0.87      0.532
+                 Brant       8623      80777      0.943      0.919       0.94        0.6
+                 Other       8623       6180      0.857      0.729      0.799      0.443
+                  Gull       8623       1008       0.91       0.92       0.93      0.573
+                Canada       8623      11243      0.908      0.921      0.928      0.603
+               Emperor       8623        662      0.768      0.799      0.751      0.442
+Speed: 0.5ms pre-process, 84.2ms inference, 0.9ms NMS per image at shape (8, 3, 1280, 1280)
+"""
+
+# 230820-best no aug
+"""
+val: Scanning /home/user/data/usgs-geese/yolo_val.cache... 8623 images, 0 backgrounds, 0 corrupt
+                 Class     Images  Instances          P          R      mAP50   mAP50-95
+                   all       8623      99870      0.888      0.867      0.885      0.547
+                 Brant       8623      80777      0.952      0.932      0.952      0.622
+                 Other       8623       6180      0.862      0.742       0.83      0.476
+                  Gull       8623       1008      0.927      0.927      0.933      0.562
+                Canada       8623      11243      0.911      0.927       0.94      0.613
+               Emperor       8623        662       0.79      0.805       0.77       0.46
+Speed: 0.9ms pre-process, 87.6ms inference, 1.0ms NMS per image at shape (8, 3, 1280, 1280)
+"""
+
+# 2023.09.02 snapshot last w/aug
+"""
+val: Scanning /home/user/data/usgs-geese/yolo_val.cache... 8623 images, 0 backgrounds, 0 corrupt
+                 Class     Images  Instances          P          R      mAP50   mAP50-95
+                   all       8623      99870      0.876      0.867      0.883      0.561
+                 Brant       8623      80777      0.946      0.923      0.949      0.622
+                 Other       8623       6180      0.847      0.757      0.829      0.482
+                  Gull       8623       1008      0.898      0.929      0.938      0.629
+                Canada       8623      11243      0.914      0.915      0.936      0.619
+               Emperor       8623        662      0.774       0.81      0.761      0.452
+"""
+
+# 2023.09.02 snapshot best w/aug
+"""
+val: Scanning /home/user/data/usgs-geese/yolo_val.cache... 8623 images, 0 backgrounds, 0 corrupt
+                 Class     Images  Instances          P          R      mAP50   mAP50-95
+                   all       8623      99870      0.887       0.87      0.891      0.576
+                 Brant       8623      80777      0.955      0.931      0.954      0.634
+                 Other       8623       6180       0.86      0.763      0.843      0.503
+                  Gull       8623       1008      0.907      0.929      0.938      0.646
+                Canada       8623      11243      0.916      0.919      0.942      0.629
+               Emperor       8623        662      0.796      0.806      0.778      0.467
+"""
+
+# 2023.09.02 snapshot last no aug
+"""
+I didn't bother to run this.
+"""
+
+# 2023.09.02 snapshot best no aug
+"""
+I didn't bother to run this.
+"""
 
 #%% Convert YOLO val .json results to MD .json format
 

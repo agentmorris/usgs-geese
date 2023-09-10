@@ -299,6 +299,20 @@ Weiser, E. L., Flint, P. L., Marks, D. K., Shults, B. S., Wilson, H. M., Thompso
 
 ## Open issues
 
-* Allow confidence thresholds to vary by class (for both counting and preview generation)
-* Add checkpointing, currently you lose the whole result set if your job crashes
-* Clean up the extensive scratch space use, especially on Windows, where we create patches, then copy all of those patches
+### Training
+
+* The code should require no modification to try YOLOv8 rather than YOLOv5.  We'll have to switch to 640x640 (rather than 1280x1280) patches, but I expect YOLOv8 to be a little better.  This is a good project for the community to try, once we release the data.
+
+* YOLOv8 aside, I'm a little suspicious that we would have actually preferred an earlier YOLOv5 checkpoint.  I did not store all checkpoints during training, and I think the last N epochs were optimizing for a loss that doesn't quite fit our scenario, at the cost of counting accuracy.  So, consider re-training and storing all checkpoints, then see which performs best for counting.  High risk of overfitting here, we'll have to think through that a little.  Better to test counting on 2022 data if we can, rather than val data.
+
+
+### Inference
+
+* Add checkpointing, currently you lose the whole result set if your job crashes.  A reasonable alternative to checkpointing is just automatically dividing up the job into lots of smaller jobs.
+
+* Clean up the extensive scratch space use, especially when running without admin priveleges on Windows, where we create patches, then copy all of those patches because we can't create symlinks
+
+### Postprocessing
+
+* Allow confidence thresholds to vary by class (for both counting and preview generation, but especially for preview generation).
+
