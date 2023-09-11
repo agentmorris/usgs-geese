@@ -39,7 +39,7 @@ def main():
     parser.add_argument(
         '--image_folder',
         type=str,
-        help='Path to the folder of images on which inference was run (not required for counting)')
+        help='Path to the folder of images on which inference was run (not required for counting); filenames in the results file should be relative to this base folder')
     parser.add_argument(
         '--count_file',
         type=str,

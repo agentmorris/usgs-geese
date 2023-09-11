@@ -295,7 +295,7 @@ pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org "setup
 
 All images are sampled from:
 
-Weiser, E. L., Flint, P. L., Marks, D. K., Shults, B. S., Wilson, H. M., Thompson, S. J. and Fischer, J. B., 2022, Aerial photo imagery from fall waterfowl surveys, Izembek Lagoon, Alaska, 2017-2019: U.S. Geological Survey data release, <a href="https://doi.org/10.5066/P9UHP1LE">https://doi.org/10.5066/P9UHP1LE</a>.
+Weiser EL, Flint PL, Marks DK, Shults BS, Wilson HM, Thompson SJ, Fischer JB, 2022, Aerial photo imagery from fall waterfowl surveys, Izembek Lagoon, Alaska, 2017-2019: U.S. Geological Survey data release, <a href="https://doi.org/10.5066/P9UHP1LE">https://doi.org/10.5066/P9UHP1LE</a>.
 
 ## Open issues
 
@@ -312,7 +312,11 @@ Weiser, E. L., Flint, P. L., Marks, D. K., Shults, B. S., Wilson, H. M., Thompso
 
 * Clean up the extensive scratch space use, especially when running without admin priveleges on Windows, where we create patches, then copy all of those patches because we can't create symlinks
 
+* Patch generation should have an overwrite=False option, to avoid re-generating patches we already have.  When running long inference jobs, patch generation is maybe 5% of the overall time, but it's annoying to have to re-do this if the job crashes (e.g., if your neighborhood's power randomly goes out 95% of the way into a big inference job) (sigh).
+
 ### Postprocessing
 
-* Allow confidence thresholds to vary by class (for both counting and preview generation, but especially for preview generation).
+* Allow confidence thresholds to vary by class (for both counting and preview generation, but especially for preview generation)
+
+* Parallelize patch generation in usgs-geese-postprocessing.py
 

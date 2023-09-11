@@ -23,6 +23,8 @@ import importlib
 usgs_geese_inference = importlib.import_module('usgs-geese-inference')
 
 from md_visualization import visualization_utils as vis_utils
+from md_utils import path_utils
+
 from detection import run_tiled_inference
 
 default_preview_confidence_thresholds = [0.4,0.5,0.6,0.7,0.8]
@@ -49,7 +51,7 @@ def intersects(box1,box2):
 #%% Postprocessing functions
 
 def patch_level_preview(image_level_results_file,image_folder_base,preview_folder,
-                        n_patches=10000,preview_confidence_thresholds=None):
+                        n_patches=10000,preview_confidence_thresholds=None,random_seed=0):
     """
     Given an image-level results file:
     
@@ -117,7 +119,8 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
     
     patch_size = usgs_geese_inference.patch_size
     
-    print('Sampling from {} images'.format(len(relative_image_fn_to_results)))
+    print('Sampling {} patches from {} images'.format(
+        n_patches,len(relative_image_fn_to_results)))
 
     # Generate a list of all image/patch tuples to sample from
     all_image_patch_tuples = []
@@ -134,7 +137,7 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
     if len(all_image_patch_tuples) <= n_patches:
         sampled_patch_tuples = all_image_patch_tuples
     else:
-        random.seed(0)
+        random.seed(random_seed)
         sampled_patch_tuples = random.sample(all_image_patch_tuples,n_patches)
     
     patch_folder = os.path.join(preview_folder,'patches')
@@ -146,8 +149,6 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
     patch_level_results['images'] = []
     
     # i_patch = 0; patch = sampled_patch_tuples[i_patch]
-    #
-    # TODO: parallelize this loop
     for i_patch,patch in tqdm(enumerate(sampled_patch_tuples),total=len(sampled_patch_tuples)):
     
         image_fn_relative = patch[0]
@@ -249,7 +250,6 @@ def patch_level_preview(image_level_results_file,image_folder_base,preview_folde
         options.almost_detection_confidence_threshold = options.confidence_threshold - 0.05
         options.ground_truth_json_file = None
         options.separate_detections_by_category = True
-        # options.sample_seed = 0
         
         options.parallelize_rendering = False
         options.parallelize_rendering_n_cores = 16
