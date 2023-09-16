@@ -113,16 +113,7 @@ with open(merged_file,'w') as f:
 
 #%% Convert everything to drive-relative paths
 
-if False:
-    
-    input_file = '/home/user/tmp/usgs-inference/usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best_eval_images.json'
-    inference_folder_drive_relative = 'eval'
-    
-    input_file = '/home/user/tmp/usgs-inference/usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best_Replicate_2017-10-03.json'
-    inference_folder_drive_relative = '2017-2019/01_JPGs/2017/Replicate_2017-10-03'
-
-    output_file = None
-    drive_root = '/media/user/My Passport'
+drive_root = '/media/user/My Passport'
 
 def convert_results_file_to_drive_relative(input_file,drive_root,inference_folder_drive_relative,
                                            output_file=None,check_file_existence=True):
@@ -216,7 +207,6 @@ for results_file in results_files:
     cmd += ' --preview_folder "{}"'.format(preview_folder)
     cmd += ' --n_patches {}'.format(str(n_patches_per_preview))
     cmd += ' --confidence_thresholds {}'.format(confidence_threshold_string)
-    cmd += ' --open_preview_pages'
         
     commands.append(cmd)
         
@@ -238,6 +228,7 @@ commands = []
 thresholds = [0.4, 0.5, 0.6]
 confidence_threshold_string = ' '.join([str(t) for t in thresholds])
 count_folder_base = os.path.expanduser('~/tmp/usgs-inference/counts')
+os.makedirs(count_folder_base,exist_ok=True)
 
 for results_file in results_files:
         

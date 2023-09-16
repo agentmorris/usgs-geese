@@ -571,24 +571,6 @@ for image_fn_relative in tqdm(hard_negative_source_images):
 # ...for each hard negative image    
 
 
-#%% Estimate output folder size
-
-import humanfriendly
-from pathlib import Path
-
-annotated_image_ids = set([p['original_image_id'] for p in patch_metadata_mapping.values()])
-
-root_directory = Path(yolo_all_dir)
-output_size_bytes = sum(f.stat().st_size for f in root_directory.glob('**/*') if f.is_file())
-
-print('Output size for {} images is {}'.format(
-    len(annotated_image_ids),humanfriendly.format_size(output_size_bytes)))
-
-projected_size_bytes = (len(d['images']) / len(annotated_image_ids)) * output_size_bytes
-print('Projected size for all {} images is {}'.format(
-    len(d['images']),humanfriendly.format_size(projected_size_bytes)))
-
-
 #%% Split image IDs into train/val
 
 patch_metadata_file_full_path = os.path.join(yolo_all_dir,patch_metadata_file)
