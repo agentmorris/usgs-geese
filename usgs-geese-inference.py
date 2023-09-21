@@ -117,7 +117,8 @@ class USGSGeeseInferenceOptions:
        
     def __init__(self, project_dir=None,yolo_working_dir=None,model_file=None,
                  devices=None,recursive=True,allow_variable_image_size=True,
-                 use_symlinks=True,no_cleanup=False,no_augment=False):
+                 use_symlinks=True,no_cleanup=False,no_augment=False,
+                 category_mapping_file=None):
         if project_dir is None:
             self.project_dir = default_project_dir
         else:
@@ -162,31 +163,43 @@ class USGSGeeseInferenceOptions:
         self.project_md_formatted_results_dir = os.path.join(project_dir,'md_formatted_results')
 
         self.n_cores_patch_generation = 16
-        self.yolo_category_id_to_name = default_yolo_category_id_to_name
+        
+        if category_mapping_file is None:
+            self.yolo_category_id_to_name = default_yolo_category_id_to_name
+        elif category_mapping_file.endswith('.yaml'):
+            self.yolo_category_id_to_name = read_classes_from_yolo_dataset_file(
+                category_mapping_file)
+        elif category_mapping_file.endswith('.json'):
+            with open(category_mapping_file,'r') as f:
+                self.yolo_category_id_to_name = json.load(f)            
+        else:
+            raise ValueError('Unrecognized category mapping file {}'.format(category_mapping_file))
+        self.yolo_category_id_to_name = {int(k):v for k,v in \
+                                         self.yolo_category_id_to_name.items()}
 
 
 #%% Validate class names if requested
 
 # It's only really useful to do this on the training machine
 
-if validate_against_dataset_file:
-    
-    def read_classes_from_yolo_dataset_file(fn):
-    
-        import re
-    
-        with open(dataset_definition_file,'r') as f:
-            lines = f.readlines()
-                
-        to_return = {}
-        pat = '\d+: .+'
-        for s in lines:
-            if re.search(pat,s) is not None:
-                tokens = s.split(':')
-                assert len(tokens) == 2, 'Invalid token in category file {}'.format(fn)
-                to_return[int(tokens[0].strip())] = tokens[1].strip()
+def read_classes_from_yolo_dataset_file(fn):
+
+    import re
+
+    with open(fn,'r') as f:
+        lines = f.readlines()
             
-        return to_return
+    to_return = {}
+    pat = '\d+: .+'
+    for s in lines:
+        if re.search(pat,s) is not None:
+            tokens = s.split(':')
+            assert len(tokens) == 2, 'Invalid token in category file {}'.format(fn)
+            to_return[int(tokens[0].strip())] = tokens[1].strip()
+        
+    return to_return
+    
+if validate_against_dataset_file:
     
     dataset_definition_file = os.path.expanduser('~/data/usgs-geese/dataset.yaml')  
     yolo_category_id_to_name = read_classes_from_yolo_dataset_file(dataset_definition_file)
@@ -515,10 +528,12 @@ def run_model_on_folder(input_folder_base,inference_options=None):
         else:                
             if parallelize_patch_generation_with_threads:
                 pool = ThreadPool(inference_options.n_cores_patch_generation)
-                print('Generating patches on a pool of {} threads'.format(inference_options.n_cores_patch_generation))
+                print('Generating patches on a pool of ' + \
+                      '{} threads'.format(inference_options.n_cores_patch_generation))
             else:
                 pool = Pool(inference_options.n_cores_patch_generation)
-                print('Generating patches on a pool of {} processes'.format(inference_options.n_cores_patch_generation))
+                print('Generating patches on a pool of ' + \
+                      '{} processes'.format(inference_options.n_cores_patch_generation))
     
             all_image_patch_info = list(tqdm(pool.imap(
                 partial(generate_patches_for_image,

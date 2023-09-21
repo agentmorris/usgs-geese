@@ -99,15 +99,6 @@ python train.py --img ${IMAGE_SIZE} --batch ${BATCH_SIZE} --epochs ${EPOCHS} --w
 """
 
 
-## Monitoring training
-
-"""
-cd ~/git/yolov5-current
-mamba activate yolov5
-tensorboard --logdir usgs-geese
-"""
-
-
 ## Resuming training
 
 """

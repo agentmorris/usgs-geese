@@ -41,7 +41,7 @@ with open(input_file,'r') as f:
     d = json.load(f)
 
 
-#%% Validate input data and compute total size
+#%% Validate input data, compute total size, and add an image-level empty flag
 
 total_size_bytes_positives = 0
 

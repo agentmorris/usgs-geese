@@ -62,6 +62,11 @@ def main():
         action='store_true',
         help='Disable YOLOv5 test-time augmentation')
     parser.add_argument(
+        '--category_mapping_file',
+        type=str,
+        default=None,
+        help='.yaml or .json file mapping model category IDs to names (defaults to Izembek model mapping)')
+    parser.add_argument(
         '--device',
         type=int,
         default=usgs_geese_inference.default_devices[0],
@@ -81,7 +86,8 @@ def main():
         use_symlinks=(not args.no_use_symlinks),
         no_augment=(args.no_augment),
         no_cleanup=args.no_cleanup,
-        devices=[args.device])
+        devices=[args.device],
+        category_mapping_file=args.category_mapping_file)
 
     results = usgs_geese_inference.run_model_on_folder(args.input_path,inference_options)
     
