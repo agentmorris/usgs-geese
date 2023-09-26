@@ -149,7 +149,7 @@ export PYTHONPATH="$PYTHONPATH:$HOME/git/MegaDetector:$HOME/git/yolov5:$HOME/git
 Your environment is set up now!  In the future, whenever you start a new shell, you just need to do:
 
 ```batch
-cd ~/git/MegaDetector
+cd ~/git/usgs-geese
 mamba activate usgs-geese-inference
 export PYTHONPATH="$PYTHONPATH:$HOME/git/MegaDetector:$HOME/git/yolov5"
 ```
