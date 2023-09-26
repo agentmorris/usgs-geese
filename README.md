@@ -187,7 +187,7 @@ You can run the model with [run_izembek_model.py](run_izembek_model.py).  First,
 ```batch
 cd c:\git\usgs-geese
 mamba activate usgs-geese-inference
-set PYTHONPATH=%PYTHONPATH%;c:\git\MegaDetector;c:\git\yolov5;c:\git\usgs-geese
+set PYTHONPATH=c:\git\MegaDetector;c:\git\yolov5;c:\git\usgs-geese
 ```
 
 ...or this (on Linux):
@@ -195,7 +195,7 @@ set PYTHONPATH=%PYTHONPATH%;c:\git\MegaDetector;c:\git\yolov5;c:\git\usgs-geese
 ```batch
 cd ~/git/MegaDetector
 mamba activate usgs-geese-inference
-export PYTHONPATH="$PYTHONPATH:$HOME/git/MegaDetector:$HOME/git/yolov5"
+export PYTHONPATH="$HOME/git/MegaDetector:$HOME/git/yolov5"
 ```
 
 Then you can run the script like this (using Windows syntax), substituting real paths for all the arguments:
