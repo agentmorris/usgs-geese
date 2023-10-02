@@ -24,6 +24,8 @@ If you want to dig a little deeper, here is a set of patch-level previews for va
 
 <https://lila.science/public/usgs-izembek-results/>
 
+NB: those results are from the slightly-buggy 1.0.0 model; we didn't bother to generate the result previews again when we released an updated 1.1.0 model.
+
 ### Files
 
 These are listed in roughly the order in which you would use them.
@@ -299,10 +301,7 @@ Weiser EL, Flint PL, Marks DK, Shults BS, Wilson HM, Thompson SJ, Fischer JB, 20
 
 ### Training
 
-* The code should require no modification to try YOLOv8 rather than YOLOv5.  We'll have to switch to 640x640 (rather than 1280x1280) patches, but I expect YOLOv8 to be a little better.  This is a good project for the community to try, once we release the data.
-
-* YOLOv8 aside, I'm a little suspicious that we would have actually preferred an earlier YOLOv5 checkpoint.  I did not store all checkpoints during training, and I think the last N epochs were optimizing for a loss that doesn't quite fit our scenario, at the cost of counting accuracy.  So, consider re-training and storing all checkpoints, then see which performs best for counting.  High risk of overfitting here, we'll have to think through that a little.  Better to test counting on 2022 data if we can, rather than val data.
-
+* The code should require no modification to try YOLOv8 rather than YOLOv5.  We'll have to switch to 640x640 (rather than 1280x1280) patches, but I expect YOLOv8 to be a little better.
 
 ### Inference
 
