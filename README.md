@@ -80,7 +80,7 @@ Install prerequisites according to the [MegaDetector instructions for prerequisi
 
 #### 2. Download the model file
 
-Download the [Izembek bird detector](https://github.com/agentmorris/usgs-geese/releases/download/v1.0.0/usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt) to your computer.  It can be anywhere that's convenient, you'll specify the full path to the model file later.
+Download the [Izembek bird detector](https://github.com/agentmorris/usgs-geese/releases/download/v1.1.0/usgs-geese-yolov5x-230820-b8-img1280-e200-best.pt) to your computer.  It can be anywhere that's convenient, you'll specify the full path to the model file later.
 
 #### 3. Clone the relevant git repos and add them to your path, and set up your Python environment
 
@@ -204,7 +204,7 @@ Then you can run the script like this (using Windows syntax), substituting real 
 python run-izembek-model.py [MODEL_PATH] [IMAGE_FOLDER] [YOLO_FOLDER] [SCRATCH_FOLDER] --recursive --no_use_symlinks
 ```
 
-* MODEL_PATH is the full path to the .pt you downloaded earlier, e.g. "c:\models\usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt"
+* MODEL_PATH is the full path to the .pt you downloaded earlier, e.g. "c:\models\usgs-geese-yolov5x-230820-b8-img1280-e200-best.pt"
 * IMAGE_FOLDER is the root folder of all the images you want to process (recursively, if you specify "--recursive")
 * YOLO_FOLDER is the folder where you checked out the YOLOv5 repo, e.g. "c:\git\yolov5"
 * SCRATCH_FOLDER is a folder you have permission to write to, on a drive that has at least twice as much free space as the size of the image folder
