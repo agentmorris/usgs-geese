@@ -24,7 +24,7 @@ If you want to dig a little deeper, here is a set of patch-level previews for va
 
 <https://lila.science/public/usgs-izembek-results/>
 
-NB: those results are from the slightly-buggy 1.0.0 model; we didn't bother to generate the result previews again when we released an updated 1.1.0 model.
+NB: <b>those results are from the slightly-buggy 1.0.0 model</b>; we didn't bother to generate the result previews again when we released an updated 1.1.0 model.  In as much as there's a list, re-generating those results is on the list.
 
 ### Files
 
