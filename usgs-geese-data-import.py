@@ -5,6 +5,7 @@
 # * Checks internal consistency of the USGS brant survey data
 #
 # * Convert original annotations from CountThings format to COCO Camera Traps
+#   (usgs_geese.json)
 #
 # * Makes reasonable efforts to identify which images among the unnanotated
 #   majority are suitable as hard negative examples.
@@ -23,7 +24,7 @@ from tqdm import tqdm
 
 from md_visualization import visualization_utils as visutils
 
-output_json_file = os.path.expanduser('~/data/usgs_geese.json')
+output_json_file = os.path.expanduser('~/data/usgs-geese/usgs_geese.json')
 
 images_without_annotations_file = os.path.expanduser('~/data/usgs-geese/images_without_annotations.txt')
 csv_files_without_images_file = os.path.expanduser('~/data/usgs-geese/csv_files_without_images.txt')

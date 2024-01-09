@@ -84,9 +84,9 @@ Install prerequisites according to the [MegaDetector instructions for prerequisi
 
 Download the [Izembek bird detector](https://github.com/agentmorris/usgs-geese/releases/download/v1.1.0/usgs-geese-yolov5x-230820-b8-img1280-e200-best.pt) to your computer.  It can be anywhere that's convenient, you'll specify the full path to the model file later.
 
-#### 3. Clone the relevant git repos and add them to your path, and set up your Python environment
+#### 3. Clone this git repo and set up your Python environment
 
-You will need the contents of three git repos to make everything work: this repo (usgs-geese), the [YOLOv5](https://github.com/ultralytics/yolov5) repo, and the [MegaDetector](https://github.com/agentmorris/MegaDetector).  You will also need to set up a Python environment with all the Python packages that our code depends on.  In this section, we provide <a href="#windows-instructions-for-gitpython-stuff">Windows</a>, <a href="#linux-instructions-for-gitpython-stuff">Linux</a>, and <a href="#mac-instructions-for-gitpython-stuff">Mac</a> instructions for doing all of this stuff.
+You will need the contents of this repo, and you will also need to set up a Python environment with all the Python packages that our code depends on.  In this section, we provide <a href="#windows-instructions-for-gitpython-stuff">Windows</a>, <a href="#linux-instructions-for-gitpython-stuff">Linux</a>, and <a href="#mac-instructions-for-gitpython-stuff">Mac</a> instructions for doing all of this stuff.
 
 ##### Windows instructions for git/Python stuff
 
@@ -95,13 +95,10 @@ The first time you set all of this up, open your Mambaforge prompt, and run:
 ```batch
 mkdir c:\git
 cd c:\git
-git clone https://github.com/agentmorris/MegaDetector
 git clone https://github.com/agentmorris/usgs-geese
-git clone https://github.com/ultralytics/yolov5
 cd c:\git\usgs-geese
 mamba env create --file environment-inference.yml
 mamba activate usgs-geese-inference
-set PYTHONPATH=%PYTHONPATH%;c:\git\MegaDetector;c:\git\yolov5;c:\git\usgs-geese
 ```
 
 <a name="windows-new-shell"></a>
@@ -110,40 +107,31 @@ Your environment is set up now!  In the future, when you open your Mambaforge pr
 ```batch
 cd c:\git\usgs-geese
 mamba activate usgs-geese-inference
-set PYTHONPATH=c:\git\MegaDetector;c:\git\yolov5;c:\git\usgs-geese
 ```
-
-Pro tip: if you have administrative access to your machine, rather than using the "set PYTHONPATH" steps, you can also create a permanent PYTHONPATH environment variable.  Here's a [good page](https://www.computerhope.com/issues/ch000549.htm) about editing environment variables in Windows.  But if you just want to "stick to the script" and do it exactly the way we recommend above, that's fine.
 
 You can also install the requirements via pip (we're still using mamba here to create a Python environment, but we're using pip to install all the dependencies):
 
 ```batch
 mkdir c:\git
 cd c:\git
-git clone https://github.com/agentmorris/MegaDetector
 git clone https://github.com/agentmorris/usgs-geese
-git clone https://github.com/ultralytics/yolov5
 cd c:\git\usgs-geese
 mamba create -y -n usgs-geese-inference python=3.11 pip
 mamba activate usgs-geese-inference
 pip install -r requirements.txt
-set PYTHONPATH=c:\git\MegaDetector;c:\git\yolov5;c:\git\usgs-geese
 ```
 
-##### Linux instructions for git/Python stuff
+##### Linux/Mac instructions for git/Python stuff
 
-If you have installed Mambaforge on Linux, you are probably always at an Mambaforge prompt; i.e., you should see "(base)" at your command prompt.  Assuming you see that, the first time you set all of this up, and run:
+If you have installed Mambaforge on Linux or MacOS, you are probably always at an Mambaforge prompt; i.e., you should see "(base)" at your command prompt.  Assuming you see that, the first time you set all of this up, and run:
 
 ```batch
 mkdir ~/git
 cd ~/git
-git clone https://github.com/agentmorris/MegaDetector
 git clone https://github.com/agentmorris/usgs-geese
-git clone https://github.com/ultralytics/yolov5
 cd ~/git/usgs-geese
 mamba env create --file environment-inference.yml
 mamba activate usgs-geese-inference
-export PYTHONPATH="$HOME/git/MegaDetector:$HOME/git/yolov5:$HOME/git/usgs-geese"
 ```
 
 <a name="linux-new-shell"></a>
@@ -152,24 +140,18 @@ Your environment is set up now!  In the future, whenever you start a new shell, 
 ```batch
 cd ~/git/usgs-geese
 mamba activate usgs-geese-inference
-export PYTHONPATH="$HOME/git/MegaDetector:$HOME/git/yolov5"
 ```
-
-Pro tip: rather than updating your PYTHONPATH every time you start a new shell, you can add the "export" line to your .bashrc file.
 
 You can also install the requirements via pip (we're still using mamba here to create a Python environment, but we're using pip to install all the dependencies):
 
 ```batch
 mkdir ~/git
 cd ~/git
-git clone https://github.com/agentmorris/MegaDetector
 git clone https://github.com/agentmorris/usgs-geese
-git clone https://github.com/ultralytics/yolov5
 cd ~/git/usgs-geese
 mamba create -y -n usgs-geese-inference python=3.11 pip
 mamba activate usgs-geese-inference
 pip install -r requirements.txt
-export PYTHONPATH="$HOME/git/MegaDetector:$HOME/git/yolov5:$HOME/git/usgs-geese"
 ```
 
 ##### Updating the Python environment
@@ -189,15 +171,13 @@ You can run the model with [run_izembek_model.py](run_izembek_model.py).  First,
 ```batch
 cd c:\git\usgs-geese
 mamba activate usgs-geese-inference
-set PYTHONPATH=c:\git\MegaDetector;c:\git\yolov5;c:\git\usgs-geese
 ```
 
-...or this (on Linux):
+...or this (on Linux/Mac):
 
 ```batch
 cd ~/git/MegaDetector
 mamba activate usgs-geese-inference
-export PYTHONPATH="$HOME/git/MegaDetector:$HOME/git/yolov5"
 ```
 
 Then you can run the script like this (using Windows syntax), substituting real paths for all the arguments:

@@ -12,18 +12,9 @@
 # desired patch size, so geese near the right and bottom of each image will be 
 # sampled twice.
 #
+# Also assumes a fixed image size (8688 x 5792).
+#
 ########
-
-#%% TODO
-
-"""
-
-* When I first ran this, I generated the train/val splits, but didn't write out the
-  corresponding list of images, and had to jump through some hoops to recover that
-  list from the patch file names.  If I ever run this again, write out the train/val
-  image splits!
-
-"""
 
 #%% Constants and imports
 
@@ -37,14 +28,26 @@ from tqdm import tqdm
 
 from md_visualization import visualization_utils as visutils
 
-input_annotations_file = os.path.expanduser('~/data/usgs_geese.json')
-input_base_folder = '/media/user/My Passport1/2017-2019'
+input_annotations_file = os.path.expanduser('~/data/usgs-geese/usgs_geese.json')
+input_base_folder = '/media/user/My Passport/2017-2019'
 input_image_folder = os.path.join(input_base_folder,'01_JPGs')
+
+# We will explicitly verify that images are actually this size
+image_width = 8688
+image_height = 5792
+image_size = [image_width,image_height]
+
+# patch_size = [1280,1280]
+patch_size = [640,640]
+
+patch_stride = [320,320]
+
+job_tag = '640px-320stride'
 
 debug_max_image = -1
 
 if debug_max_image < 0:
-    output_dir = os.path.expanduser('~/data/usgs-geese')
+    output_dir = os.path.expanduser('~/data/usgs-geese-{}'.format(job_tag))
 else:
     output_dir = os.path.expanduser('~/data/usgs-geese-mini-{}'.format(debug_max_image))
 
@@ -62,14 +65,9 @@ yolo_val_dir = os.path.join(output_dir,'yolo_val')
 train_image_id_list_file = os.path.join(output_dir,'train_images.json')
 val_image_id_list_file = os.path.join(output_dir,'val_images.json')
 
-patch_size = [1280,1280]
-
 # Boxes in the input data have width and height, but AFAIK, they are basically arbitrary,
 # we will use a fixed size for all boxes that's roughly the size of a bird, and then a bit
 # extra.
-#
-# There's absolutely nothing special about this being a power of two, I was just picking
-# a number around this range, and it seemed like good Karm to use 64.
 box_size = [50,50]
 
 # Should we clip boxes to image boundaries, even if we know the object extends
@@ -121,10 +119,6 @@ if not do_tile_writes:
 
 if not do_image_copies:
     print('*** Warning: image copying disabled ***')
-
-# We will explicitly verify that images are actually this size
-image_width = 8688
-image_height = 5792
 
 
 #%% Folder prep
@@ -183,6 +177,7 @@ for im in tqdm(d['images']):
 #%% Verify image ID uniqueness
 
 image_ids = set()
+
 for im in d['images']:
     assert im['id'] not in image_ids
     image_ids.add(im['id'])
@@ -192,32 +187,11 @@ for im in d['images']:
 
 # We'll use the same patch boundaries for all images
 
-patch_start_positions = []
+from detection.run_tiled_inference import get_patch_boundaries
 
-n_x_patches = image_width // patch_size[0]
-if image_width - (patch_size[0]*n_x_patches) != 0:
-    n_x_patches += 1
-
-n_y_patches = image_height // patch_size[1]
-if image_height - (patch_size[1]*n_y_patches) != 0:
-    n_y_patches += 1
-
-for i_x_patch in range(0,n_x_patches):
-    
-    x_start = patch_size[0] * i_x_patch
-    x_end = x_start + patch_size[0] - 1
-    if x_end >= image_width:
-        assert i_x_patch == n_x_patches - 1
-        overshoot = (x_end - image_width) + 1
-        x_start -= overshoot
-    for i_y_patch in range(0,n_y_patches):
-        y_start = patch_size[1] * i_y_patch
-        y_end = y_start + patch_size[1] - 1
-        if y_end >= image_height:
-            assert i_y_patch == n_y_patches - 1
-            overshoot =  (y_end - image_height) + 1
-            y_start -= overshoot
-        patch_start_positions.append([x_start,y_start])
+patch_start_positions = get_patch_boundaries(image_size=image_size, 
+                                             patch_size=patch_size, 
+                                             patch_stride=patch_stride)
 
 assert patch_start_positions[-1][0]+patch_size[0] == image_width
 assert patch_start_positions[-1][1]+patch_size[1] == image_height
@@ -226,8 +200,11 @@ assert patch_start_positions[-1][1]+patch_size[1] == image_height
 #%% Create YOLO-formatted patches
 
 # Currently takes about 1.5 hours
-
+#
 # TODO: this is trivially parallelizable
+#
+# TODO: this is now redundant with code in run_tiled_inference.py; refactor that code
+# to make it more accessible, and call that here instead of more or less repeating it.
 
 # This will be a dict mapping patch names (YOLO files without the extension)
 # to metadata about their sources
@@ -681,10 +658,15 @@ with open(yolo_dataset_file,'w') as f:
 
 #%% Prepare symlinks for BoundingBoxEditor
 
+#
 # ...so it can appear that images and labels are in separate folders, 
 # currently required as per:
 #
 # https://github.com/mfl28/BoundingBoxEditor/issues/67
+#
+# 2023.12.30 update: turns out this not strictly necessary for using BBE for 
+# previewing, it just suppresses some warnings.
+#
 
 def safe_create_link(link_exists,link_new):
     
