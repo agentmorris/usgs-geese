@@ -21,7 +21,9 @@
 mamba create --name yolov8 pip python==3.11 -y
 mamba activate yolov8
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-pip install ultralytics
+pip install --upgrade ultralytics
+mamba install -c conda-forge spyder
+pip install clipboard
 """
 
 #%% Project constants
@@ -32,17 +34,39 @@ import os
 batch_size = -1
 image_size = 640
 epochs = 300
-# yolo_dataset_file='/home/user/data/usgs-geese-640/dataset.yaml'
-yolo_dataset_file = '/home/user/data/usgs-geese-640px-320stride/dataset.yaml'
+
+# yolo_dataset_file = os.path.expanduser('~/data/usgs-geese-640/dataset.yaml')
+
+# yolo_dataset_file = os.path.expanduser('~/data/usgs-geese-640px-320stride/dataset.yaml')
+# project_dir = os.path.expanduser('~/tmp/usgs-geese-yolov8-training')
+
+yolo_dataset_file = '/home/dmorris/data-wsl/usgs-geese-640px-320stride/dataset.yaml'
+project_dir = '/home/dmorris/tmp/usgs-geese-yolov8-training'
+
 base_model = 'yolov8x.pt'
 tag = '-stride-320'
-project_dir = os.path.expanduser('~/tmp/usgs-geese-yolov8-training')
 assert not project_dir.endswith('/')
 
-training_run_name = f'usgs-geese-yolov8x-2023.12.31-b{batch_size}-img{image_size}-e{epochs}{tag}'
+# Enable YOLOv8's RAM cache.  Data seems to expand ~4x into RAM, so with this dataset, you would need
+# a couple hundred GB of RAM to support this.
+enable_ram_cache = False
+
+# I found that with a batch size of 32 (instead of 16), AMP caused instability.
+enable_amp = True
+
+training_run_name = f'usgs-geese-yolov8x-2024.01.10-b{batch_size}-img{image_size}-e{epochs}{tag}'
 
 model_base_folder = os.path.expanduser('~/models/usgs-geese')
 assert os.path.isdir(model_base_folder)
+
+amp_string = "" if enable_amp else "amp=False"
+ram_cache_string = "cache" if enable_ram_cache else ""
+
+def wsl_project_path_to_windows(s):
+    if os.name == 'nt' and project_dir.startswith('/'):
+        s = s.replace('/home/dmorris',os.path.expanduser('~'))
+        s = s.replace('data-wsl','data')
+    return s
 
 
 #%% Train
@@ -55,27 +79,38 @@ LD_LIBRARY_PATH=
 mamba activate yolov8
 """
 
-training_command = f'yolo detect train data="{yolo_dataset_file}" batch={batch_size} model="{base_model}" epochs={epochs} imgsz={image_size} project="{project_dir}" name="{training_run_name}" device="0,1"'
+training_command = f'yolo detect train data="{yolo_dataset_file}" batch={batch_size} model="{base_model}" epochs={epochs} imgsz={image_size} ' + \
+                   f'project="{project_dir}" name="{training_run_name}" device="0,1" {ram_cache_string} {amp_string}'
+                   
 print('\n{}'.format(training_command))
-# import clipboard; clipboard.copy(training_command)
+import clipboard; clipboard.copy(training_command)
 
 
 #%% Resume training
 
 import os
-resume_checkpoint = os.path.join(project_dir,training_run_name,'weights/last.pt')
-assert os.path.isfile(resume_checkpoint)
+# resume_checkpoint = os.path.join(project_dir,training_run_name,'weights/last.pt')
+resume_checkpoint = project_dir + '/' + training_run_name + '/weights/last.pt'
+# assert os.path.isfile(resume_checkpoint)
 
 """
 mamba activate yolov8
 """
-resume_command = f'yolo detect train resume model="{resume_checkpoint}" data="{yolo_dataset_file}"'
+
+cmd = 'if [ -f  {} ]; then\necho "Checkpoint found"\nelse\necho "Checkpoint not found"\nfi'.format(yolo_dataset_file)
+import clipboard; clipboard.copy(cmd)
+
+resume_command = f'yolo detect train resume model="{resume_checkpoint}" data="{yolo_dataset_file}" ' + \
+                 f'{ram_cache_string} {amp_string}' 
+#  project="{project_dir}" name="{training_run_name}"                 
+                 
 print('\n{}'.format(resume_command))
 import clipboard; clipboard.copy(resume_command)
 
 
 #%% Make plots during training
 
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -89,6 +124,7 @@ else:
     model_type = 'yolov8'
 
 results_file = '{}/{}/results.csv'.format(project_dir,training_run_name)
+results_file = wsl_project_path_to_windows(results_file)
 assert os.path.isfile(results_file)
 
 results_page_folder = '{}/{}/training-progress-report'.format(project_dir,training_run_name)
@@ -100,6 +136,11 @@ fig_02_fn_abs = os.path.join(results_page_folder,'figure_02.png')
 
 df = pd.read_csv(results_file)
 df = df.rename(columns=lambda x: x.strip())
+# df = df.replace([np.inf, -np.inf], 1.0)
+
+# I have seen inf values creep in for the cls_loss; pandas is loading "inf" as a string, so I
+# plaster over this by converting to float here.  I'm not sure why it's only val/cls_loss.
+df['val/cls_loss'] = df['val/cls_loss'].map(np.float32)
 
 plt.ioff()
 
@@ -165,39 +206,43 @@ open_file(results_page_html_file)
 
 import shutil
 
-checkpoint_tag = '20240108-resume'
+checkpoint_tag = '20240117-final'
 
 # Import the function we need for removing optimizer state
 
-utils_imported = False
-if not utils_imported:
-    try:
-        from yolov5.utils.general import strip_optimizer
-        utils_imported = True
-    except Exception:
-        pass
-if not utils_imported:
-    try:
-        from ultralytics.utils.general import strip_optimizer # noqa
-        utils_imported = True
-    except Exception:
-        pass        
-if not utils_imported:
-    try:
-        from ultralytics.utils.torch_utils import strip_optimizer # noqa
-        utils_imported = True
-    except Exception:
-        pass        
-if not utils_imported:
-    try:
-        from utils.general import strip_optimizer # noqa
-        utils_imported = True
-    except Exception:
-        pass
-assert utils_imported
+strip_optimizer_state = False
+
+if strip_optimizer_state:
+    utils_imported = False
+    if not utils_imported:
+        try:
+            from yolov5.utils.general import strip_optimizer
+            utils_imported = True
+        except Exception:
+            pass
+    if not utils_imported:
+        try:
+            from ultralytics.utils.general import strip_optimizer # noqa
+            utils_imported = True
+        except Exception:
+            pass        
+    if not utils_imported:
+        try:
+            from ultralytics.utils.torch_utils import strip_optimizer # noqa
+            utils_imported = True
+        except Exception:
+            pass        
+    if not utils_imported:
+        try:
+            from utils.general import strip_optimizer # noqa
+            utils_imported = True
+        except Exception:
+            pass
+    assert utils_imported
 
 # Input folder(s)
 training_output_dir = os.path.join(project_dir,training_run_name)
+training_output_dir = wsl_project_path_to_windows(training_output_dir)
 training_weights_dir = os.path.join(training_output_dir,'weights')
 assert os.path.isdir(training_weights_dir)
 
@@ -208,16 +253,19 @@ os.makedirs(model_folder,exist_ok=True)
 weights_folder = os.path.join(model_folder,'weights')
 os.makedirs(weights_folder,exist_ok=True)
 
+# weight_name = 'best'
+
 for weight_name in ('last','best'):
     
     source_file = os.path.join(training_weights_dir,weight_name + '.pt')
     assert os.path.isfile(source_file)
     target_file = os.path.join(weights_folder,'{}-{}.pt'.format(
         training_run_name,weight_name))
-    
     shutil.copyfile(source_file,target_file)
-    target_file_optimizer_stripped = target_file.replace('.pt','-stripped.pt')
-    strip_optimizer(target_file,target_file_optimizer_stripped)
+    
+    if strip_optimizer_state:
+        target_file_optimizer_stripped = target_file.replace('.pt','-stripped.pt')
+        strip_optimizer(target_file,target_file_optimizer_stripped)
 
 other_files = os.listdir(training_output_dir)
 other_files = [os.path.join(training_output_dir,fn) for fn in other_files]
@@ -238,22 +286,26 @@ print('Backed up training state to {}'.format(model_folder))
 
 import os
 
-model_base = os.path.expanduser('~/models/usgs-geese')
+# model_base = os.path.expanduser('~/models/usgs-geese')
+model_base = '/home/dmorris/models/usgs-geese'
+# project_name = os.path.expanduser('~/tmp/usgs-geese-640-val')
+project_name = '/home/dmorris/tmp/usgs-geese-640-val'
+
+
 training_run_names = [
-    'usgs-geese-yolov8x-2023.12.31-b-1-img640-e3004'
+    # 'usgs-geese-yolov8x-2023.12.31-b-1-img640-e3004'
+    'usgs-geese-yolov8x-2024.01.10-b-1-img640-e300-stride-320'
 ]
 
-data_folder = os.path.expanduser('~/data/usgs-geese-640')
+# data_folder = os.path.expanduser('~/data/usgs-geese-640')
+data_folder = os.path.dirname(yolo_dataset_file)
 image_size = 640
 
 # Doesn't impact results, just inference time
 batch_size_val = 8
 
-project_name = os.path.expanduser('~/tmp/usgs-geese-640-val')
-data_file = os.path.join(data_folder,'dataset.yaml')
+data_file = data_folder + '/dataset.yaml'
 augment_flags = [True,False]
-
-assert os.path.isfile(data_file)
 
 commands = []
 
@@ -262,17 +314,22 @@ n_devices = 2
 # training_run_name = training_run_names[0]
 for training_run_name in training_run_names:
     
+    # augment = augment_flags[0]
     for augment in augment_flags:
         
-        model_file_base = os.path.join(model_base,training_run_name)
-        model_files = [model_file_base + s for s in ('-last.pt','-best.pt')]
+        model_file_base = model_base + '/' + training_run_name
+        model_files = os.listdir(wsl_project_path_to_windows(model_file_base))
+        model_files = [model_file_base + '/' + fn for fn in model_files if fn.endswith('.pt')]
+        assert len(model_files) == 2
+        assert len([s for s in model_files if s.endswith('-best.pt')]) == 1
+        assert len([s for s in model_files if s.endswith('-last.pt')]) == 1
         
         # model_file = model_files[0]
         for model_file in model_files:
             
-            assert os.path.isfile(model_file)
-            
             model_short_name = os.path.basename(model_file).replace('.pt','')
+            if augment:
+                model_short_name += '-aug'
             
             # yolo detect train data=${DATA_YAML_FILE} batch=${BATCH_SIZE} model=${BASE_MODEL} epochs=${EPOCHS} imgsz=${IMAGE_SIZE} project=${PROJECT} name=${NAME} device=0,1
             cuda_index = len(commands) % n_devices
@@ -294,8 +351,6 @@ for cmd in commands:
     print('')
     print(cmd + '\n')
     
-pass
-
 
 #%% Results notes: no tile overlap during training
 
@@ -367,4 +422,78 @@ Best no aug
                   Gull      20644       1088        0.9      0.856      0.904      0.584
                 Canada      20644       9726      0.922      0.856        0.9      0.628
                Emperor      20644        334      0.342      0.401      0.398      0.255
+"""
+
+
+#%% Result notes: 50% overlap during training
+
+# Training stopped early at 90 epochs; best result observed @ epoch 61
+
+# Results printed at the end of training (should be same as "best no aug" below)
+
+"""
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95
+                   all      72237     327004      0.792      0.756      0.788      0.557
+                 Brant      72237     264066       0.96      0.901      0.927       0.67
+                 Other      72237      24536      0.815      0.727      0.785      0.529
+                  Gull      72237       3853      0.926      0.872      0.918      0.651
+                Canada      72237      33340      0.937      0.858      0.905      0.659
+               Emperor      72237       1209      0.322      0.423      0.405      0.278
+"""
+
+
+"""
+Last w/aug
+"""
+
+"""
+                  Class     Images  Instances      Box(P          R      mAP50  mAP50-95
+                   all      72237     327004      0.771      0.761      0.783      0.553
+                 Brant      72237     264066      0.954      0.892      0.926      0.668
+                 Other      72237      24536      0.785      0.775        0.8      0.537
+                  Gull      72237       3853      0.892      0.883        0.9      0.641
+                Canada      72237      33340      0.926      0.862      0.905      0.656
+               Emperor      72237       1209        0.3      0.394      0.384      0.262
+"""
+
+"""
+Best w/aug
+"""
+
+"""
+                Class     Images  Instances      Box(P          R      mAP50  mAP50-95)
+                   all      72237     327004      0.776      0.763      0.782       0.55
+                 Brant      72237     264066      0.954      0.893      0.924      0.666
+                 Other      72237      24536      0.786      0.757       0.79      0.529
+                  Gull      72237       3853      0.899      0.877      0.906      0.643
+                Canada      72237      33340      0.926      0.863      0.903      0.653
+               Emperor      72237       1209      0.314      0.423      0.387      0.261
+"""
+
+"""
+Last no aug
+"""
+
+"""
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95
+                   all      72237     327004      0.787      0.752      0.782      0.554
+                 Brant      72237     264066       0.96      0.901      0.929      0.671
+                 Other      72237      24536      0.806      0.731      0.789      0.532
+                  Gull      72237       3853      0.923      0.875      0.909      0.644
+                Canada      72237      33340      0.942      0.855      0.907      0.662
+               Emperor      72237       1209      0.306      0.397      0.377       0.26
+"""
+
+"""
+Best no aug
+"""
+
+"""
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95
+                   all      72237     327004      0.791      0.757      0.788      0.557
+                 Brant      72237     264066       0.96      0.902      0.927       0.67
+                 Other      72237      24536      0.814      0.727      0.785       0.53
+                  Gull      72237       3853      0.926      0.872      0.918       0.65
+                Canada      72237      33340      0.936      0.858      0.905      0.659
+               Emperor      72237       1209       0.32      0.423      0.404      0.278
 """
