@@ -43,7 +43,9 @@ epochs = 300
 yolo_dataset_file = '/home/dmorris/data-wsl/usgs-geese-640px-320stride/dataset.yaml'
 project_dir = '/home/dmorris/tmp/usgs-geese-yolov8-training'
 
-base_model = 'yolov8x.pt'
+# base_model = 'yolov8x.pt'
+base_model = 'yolov8l.pt'
+
 tag = '-stride-320'
 assert not project_dir.endswith('/')
 
@@ -54,7 +56,9 @@ enable_ram_cache = False
 # I found that with a batch size of 32 (instead of 16), AMP caused instability.
 enable_amp = True
 
-training_run_name = f'usgs-geese-yolov8x-2024.01.10-b{batch_size}-img{image_size}-e{epochs}{tag}'
+# training_run_name = f'usgs-geese-yolov8x-2024.01.10-b{batch_size}-img{image_size}-e{epochs}{tag}'
+# training_run_name = f'usgs-geese-yolov8x-2024.01.10-b{batch_size}-img{image_size}-e{epochs}{tag}'
+training_run_name = f'usgs-geese-yolov8l-2024.01.17-b{batch_size}-img{image_size}-e{epochs}{tag}'
 
 model_base_folder = os.path.expanduser('~/models/usgs-geese')
 assert os.path.isdir(model_base_folder)
@@ -206,7 +210,7 @@ open_file(results_page_html_file)
 
 import shutil
 
-checkpoint_tag = '20240117-final'
+checkpoint_tag = '20240124-final'
 
 # Import the function we need for removing optimizer state
 
@@ -294,7 +298,8 @@ project_name = '/home/dmorris/tmp/usgs-geese-640-val'
 
 training_run_names = [
     # 'usgs-geese-yolov8x-2023.12.31-b-1-img640-e3004'
-    'usgs-geese-yolov8x-2024.01.10-b-1-img640-e300-stride-320'
+    # 'usgs-geese-yolov8x-2024.01.10-b-1-img640-e300-stride-320'
+    'usgs-geese-yolov8l-2024.01.17-b-1-img640-e300-stride-320'
 ]
 
 # data_folder = os.path.expanduser('~/data/usgs-geese-640')
@@ -496,4 +501,77 @@ Best no aug
                   Gull      72237       3853      0.926      0.872      0.918       0.65
                 Canada      72237      33340      0.936      0.858      0.905      0.659
                Emperor      72237       1209       0.32      0.423      0.404      0.278
+"""
+
+
+#%% Result notes: YOLOv8L (instead of YOLOv8x), 50% overlap during training
+
+# Training stopped early at 136 epochs; best result observed @ epoch 86
+
+# Results printed at the end of training (should be same as "best no aug" below)
+
+"""
+                 Class     Images  Instances      Box(P          R      mAP50   mAP50-95
+                   all      72237     327004      0.784      0.749       0.78      0.528
+                 Brant      72237     264066      0.958      0.898      0.926      0.638
+                 Other      72237      24536      0.799      0.701      0.756      0.491
+                  Gull      72237       3853      0.932      0.871      0.913      0.604
+                Canada      72237      33340      0.929      0.864      0.904      0.641
+               Emperor      72237       1209      0.303      0.414      0.402      0.266
+"""
+
+"""
+Last w/aug
+"""
+
+"""
+                 Class     Images  Instances      Box(P          R      mAP50   mAP50-95
+                   all      72237     327004      0.757      0.764      0.772      0.532
+                 Brant      72237     264066      0.935      0.891      0.918      0.648
+                 Other      72237      24536      0.759      0.763      0.779      0.509
+                  Gull      72237       3853       0.89       0.88      0.885      0.616
+                Canada      72237      33340      0.916      0.865      0.901      0.639
+               Emperor      72237       1209      0.285      0.422      0.379       0.25
+"""
+               
+"""
+Best w/aug
+"""
+
+"""
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95
+                   all      72237     327004      0.758      0.759      0.772      0.534
+                 Brant      72237     264066      0.929      0.892      0.916      0.649
+                 Other      72237      24536      0.775      0.742       0.77      0.505
+                  Gull      72237       3853      0.881      0.876      0.885      0.616
+                Canada      72237      33340      0.916      0.867      0.899      0.641
+               Emperor      72237       1209       0.29      0.418      0.392      0.262
+"""
+
+"""
+Last no aug
+"""
+
+"""
+                  Class     Images  Instances      Box(P         R      mAP50   mAP50-95
+                   all      72237     327004       0.78      0.755      0.778      0.524
+                 Brant      72237     264066      0.959      0.898      0.927       0.64
+                 Other      72237      24536      0.777      0.723       0.76      0.487
+                  Gull      72237       3853      0.929      0.875      0.912      0.606
+                Canada      72237      33340      0.935      0.861      0.906      0.638
+               Emperor      72237       1209        0.3      0.417      0.384       0.25
+"""
+
+"""
+Best no aug
+"""
+
+"""
+                  Class     Images  Instances      Box(P         R      mAP50   mAP50-95
+                   all      72237     327004      0.784      0.749       0.78      0.528
+                 Brant      72237     264066      0.958      0.898      0.926      0.638
+                 Other      72237      24536      0.799      0.701      0.756      0.491
+                  Gull      72237       3853      0.932      0.871      0.913      0.605
+                Canada      72237      33340      0.929      0.864      0.904      0.641
+               Emperor      72237       1209      0.303      0.414      0.402      0.266
 """
