@@ -153,14 +153,14 @@ class USGSGeeseInferenceOptions:
             self.cleanup_targets = []
 
         # Derived paths
-        self.project_symlink_dir = os.path.join(project_dir,'symlink_images')
-        self.project_dataset_file_dir = os.path.join(project_dir,'dataset_files')
-        self.project_patch_dir = os.path.join(project_dir,'patches')
-        self.project_inference_script_dir = os.path.join(project_dir,'inference_scripts')
-        self.project_yolo_results_dir = os.path.join(project_dir,'yolo_results')
-        self.project_image_level_results_dir = os.path.join(project_dir,'image_level_results')
-        self.project_chunk_cache_dir = os.path.join(project_dir,'chunk_cache')
-        self.project_md_formatted_results_dir = os.path.join(project_dir,'md_formatted_results')
+        self.project_symlink_dir = os.path.join(project_dir,'symlink_images').replace('\\','/')
+        self.project_dataset_file_dir = os.path.join(project_dir,'dataset_files').replace('\\','/')
+        self.project_patch_dir = os.path.join(project_dir,'patches').replace('\\','/')
+        self.project_inference_script_dir = os.path.join(project_dir,'inference_scripts').replace('\\','/')
+        self.project_yolo_results_dir = os.path.join(project_dir,'yolo_results').replace('\\','/')
+        self.project_image_level_results_dir = os.path.join(project_dir,'image_level_results').replace('\\','/')
+        self.project_chunk_cache_dir = os.path.join(project_dir,'chunk_cache').replace('\\','/')
+        self.project_md_formatted_results_dir = os.path.join(project_dir,'md_formatted_results').replace('\\','/')
 
         self.n_cores_patch_generation = 16
         
@@ -262,7 +262,7 @@ def extract_patch_from_image(im,patch_xy,patch_wh,
         assert patch_folder is not None,\
             "If you don't supply a patch filename to extract_patch_from_image, you need to supply a folder name"
         patch_name = patch_info_to_patch_name(image_name,patch_x_min,patch_y_min)
-        patch_image_fn = os.path.join(patch_folder,patch_name + '.jpg')
+        patch_image_fn = os.path.join(patch_folder,patch_name + '.jpg').replace('\\','/')
     
     if os.path.isfile(patch_image_fn) and (not overwrite):
         pass
@@ -350,9 +350,9 @@ def generate_patches_for_image(image_fn_relative,patch_folder_base,input_folder_
     See extract_patches_for_image for return format.
     """
     
-    image_fn = os.path.join(input_folder_base,image_fn_relative)    
+    image_fn = os.path.join(input_folder_base,image_fn_relative).replace('\\','/')
     assert os.path.isfile(image_fn), 'Image file {} does not exist'.format(image_fn)
-    patch_folder = os.path.join(patch_folder_base,image_fn_relative)        
+    patch_folder = os.path.join(patch_folder_base,image_fn_relative).replace('\\','/')
     image_patch_info = extract_patches_for_image(image_fn,patch_folder,
                                                  input_folder_base,overwrite=overwrite,
                                                  allow_variable_image_size=allow_variable_image_size)
@@ -395,7 +395,7 @@ def create_symlink_folder_for_patches(patch_files,symlink_dir,inference_options=
         patch_id_string = str(i_patch).zfill(10)
         patch_id_to_file[patch_id_string] = patch_fn
         symlink_name = patch_id_string + ext
-        symlink_full_path = os.path.join(symlink_dir,symlink_name)
+        symlink_full_path = os.path.join(symlink_dir,symlink_name).replace('\\','/')
         if inference_options.use_symlinks:
             safe_create_link(patch_fn,symlink_full_path)
         else:
@@ -440,7 +440,7 @@ def run_yolo_model(project_dir,run_name,dataset_file,model_file,yolo_working_dir
     doesn't actually run it.
     """
     
-    run_dir = os.path.join(project_dir,run_name)
+    run_dir = os.path.join(project_dir,run_name).replace('\\','/')
     os.makedirs(run_dir,exist_ok=True)    
     
     image_size_string = str(round(yolo_image_size))
@@ -498,7 +498,8 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     ##%% Enumerate images
     
     images_absolute = path_utils.find_images(input_folder_base,
-                                             recursive=inference_options.recursive)
+                                             recursive=inference_options.recursive,
+                                             convert_slashes=True)
     images_relative = [os.path.relpath(fn,input_folder_base) for fn in images_absolute]    
     
 
@@ -509,9 +510,9 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     # This is a .json file that includes metadata about our patches; this is only used during
     # debugging, when we want to re-start from this point but don't want to re-generate patches
     patch_cache_file = os.path.join(inference_options.project_chunk_cache_dir,
-                                    folder_name_clean + '_patch_info.json')
+                                    folder_name_clean + '_patch_info.json').replace('\\','/')
     patch_folder_for_folder = os.path.join(inference_options.project_patch_dir,
-                                           folder_name_clean)
+                                           folder_name_clean).replace('\\','/')
                                            
     if force_patch_generation or (not os.path.isfile(patch_cache_file)):
                 
@@ -603,12 +604,13 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     chunk_info = []
     
     folder_symlink_dir = os.path.join(inference_options.project_symlink_dir,
-                                      folder_name_clean)
+                                      folder_name_clean).replace('\\','/')
     symlink_folder_existed = os.path.isdir(folder_symlink_dir)
     
     for i_chunk,chunk_files in enumerate(patch_chunks):
     
-        chunk_symlink_dir = os.path.join(folder_symlink_dir,'chunk_{}'.format(str(i_chunk).zfill(2)))
+        chunk_symlink_dir = os.path.join(
+            folder_symlink_dir,'chunk_{}'.format(str(i_chunk).zfill(2))).replace('\\','/')
     
         print('Generating symlinks for chunk {} in folder {}'.format(
             i_chunk,chunk_symlink_dir))
@@ -637,12 +639,14 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     ##%% Generate .yaml files (to tell YOLO where the data is)
     
     folder_dataset_file_dir = os.path.join(inference_options.project_dataset_file_dir,
-                                           folder_name_clean)
+                                           folder_name_clean).replace('\\','/')
+    
     os.makedirs(folder_dataset_file_dir,exist_ok=True)
     
     for i_chunk,chunk in enumerate(chunk_info):
                 
-        chunk['dataset_file'] = os.path.join(folder_dataset_file_dir,chunk['chunk_id'] + '_dataset.yaml')
+        chunk['dataset_file'] = os.path.join(
+            folder_dataset_file_dir,chunk['chunk_id'] + '_dataset.yaml').replace('\\','/')
         print('Writing dataset file for chunk {} to {}'.format(i_chunk,chunk['dataset_file']))
         create_yolo_dataset_file(chunk['dataset_file'],chunk['symlink_dir'],
                                  inference_options.yolo_category_id_to_name)
@@ -651,11 +655,11 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     ##%% Prepare commands to run the model on symlink folder(s)
     
     folder_inference_script_dir = os.path.join(inference_options.project_inference_script_dir,
-                                               folder_name_clean)
+                                               folder_name_clean).replace('\\','/')
     os.makedirs(folder_inference_script_dir,exist_ok=True)
     
     folder_yolo_results_dir = os.path.join(inference_options.project_yolo_results_dir,
-                                           folder_name_clean)
+                                           folder_name_clean).replace('\\','/')
     os.makedirs(folder_yolo_results_dir,exist_ok=True)
     
     for i_chunk,chunk in enumerate(chunk_info):
@@ -667,7 +671,8 @@ def run_model_on_folder(input_folder_base,inference_options=None):
             device_string = str(device)
         
         chunk['run_name'] = 'inference-output-' + chunk['chunk_id']        
-        chunk['run_output_dir'] = os.path.join(folder_yolo_results_dir,chunk['run_name'])
+        chunk['run_output_dir'] = os.path.join(
+            folder_yolo_results_dir,chunk['run_name']).replace('\\','/')
         chunk['cmd'] = run_yolo_model(folder_yolo_results_dir,
                                       chunk['run_name'],
                                       chunk['dataset_file'],
@@ -676,8 +681,9 @@ def run_model_on_folder(input_folder_base,inference_options=None):
                                       execute=False,
                                       augment=inference_options.augment,
                                       device_string=device_string)
-        chunk['script_name'] = os.path.join(folder_inference_script_dir,'run_chunk_{}_device_{}.{}'.format(
-            str(i_chunk).zfill(2),device_string,script_extension))
+        chunk['script_name'] = os.path.join(
+            folder_inference_script_dir,'run_chunk_{}_device_{}{}'.format(
+            str(i_chunk).zfill(2),device_string,script_extension)).replace('\\','/')
         with open(chunk['script_name'],'w') as f:
             f.write(chunk['cmd'])
         st = os.stat(chunk['script_name'])
@@ -690,7 +696,7 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     ##%% Save/load chunk state for debugging (because stuff crashes)
     
     chunk_cache_file = os.path.join(inference_options.project_chunk_cache_dir,
-                                    folder_name_clean + '_chunk_info.json')    
+                                    folder_name_clean + '_chunk_info.json').replace('\\','/')
     os.makedirs(inference_options.project_chunk_cache_dir,exist_ok=True)
     
     if False:
@@ -727,7 +733,7 @@ def run_model_on_folder(input_folder_base,inference_options=None):
         def run_chunk(cmd):
             os.environ['LD_LIBRARY_PATH']=''
             os.chdir(inference_options.yolo_working_dir)
-            return process_utils.execute_and_print(cmd,print_output=True)
+            return process_utils.execute_and_print(cmd,print_output=True,encoding='utf-8',verbose=True)
            
         if n_workers == 1:  
          
@@ -820,7 +826,7 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     md_formatted_results_files_for_chunks = [chunk['md_formatted_results_file'] for chunk in chunk_info]
     md_formatted_results_file_for_folder = os.path.join(
         inference_options.project_md_formatted_results_dir,
-        folder_name_clean + '.json')    
+        folder_name_clean + '.json').replace('\\','/')
     
     _ = combine_api_outputs.combine_api_output_files(md_formatted_results_files_for_chunks,
                                                  md_formatted_results_file_for_folder,
@@ -901,7 +907,7 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     # This contains patches for all images in the folder.
     patch_fn_to_results = {}
     for im in tqdm(all_patch_results['images']):
-        abs_fn = os.path.join(patch_folder_for_folder,im['file'])
+        abs_fn = os.path.join(patch_folder_for_folder,im['file']).replace('\\','/')
         patch_fn_to_results[abs_fn] = im
 
     md_results_image_level = {}
@@ -914,7 +920,7 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     # i_image = 0; image_fn_relative = images_relative[i_image]
     for i_image,image_fn_relative in tqdm(enumerate(images_relative),total=len(images_relative)):
         
-        image_fn = os.path.join(input_folder_base,image_fn_relative)
+        image_fn = os.path.join(input_folder_base,image_fn_relative).replace('\\','/')
         assert os.path.isfile(image_fn), 'Image file {} doesn\'t exist'.format(image_fn)
                 
         output_im = {}
@@ -1002,7 +1008,7 @@ def run_model_on_folder(input_folder_base,inference_options=None):
     os.makedirs(inference_options.project_image_level_results_dir,exist_ok=True)
     
     md_results_image_level_fn = os.path.join(inference_options.project_image_level_results_dir,
-                                             folder_name_clean + '_md_results_image_level.json')
+                                             folder_name_clean + '_md_results_image_level.json').replace('\\','/')
     print('Saving image-level results to {}'.format(md_results_image_level_fn))
           
     with open(md_results_image_level_fn,'w') as f:
@@ -1146,8 +1152,7 @@ if False:
 
     #%% Run the model programmatically on one folder
     
-    # input_folder_base = '/home/user/data/usgs-geese/eval_images'
-    input_folder_base = '/media/user/My Passport1/2017-2019/01_JPGs/2017/Replicate_2017-10-03'
+    input_folder_base = r'c:\temp\usgs-test-images'
     
     inference_options = USGSGeeseInferenceOptions()
     

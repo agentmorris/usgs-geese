@@ -110,11 +110,10 @@ if False:
 
     #%% Prepare inference pass
     
-    # image_dir = r'd:\tmp'
-    image_dir = r'g:\temp\wdfw-brant-images'
+    image_dir = r'g:\temp\usgs-test-images'
     yolo_working_dir = r'c:\git\yolov5-current'
-    scratch_dir = r'g:\temp\scratch'
-    model_file = os.path.expanduser('~/models/usgs-geese/usgs-geese-yolov5x6-b8-img1280-e125-of-200-20230401-ss-best.pt')
+    scratch_dir = r'g:\temp\usgs-scratch'
+    model_file = r"C:\Users\dmorr\models\usgs-geese\usgs-geese-yolov5x-230820-b8-img1280-e200-best.pt"
     use_symlinks = False
     cleanup = True
     
