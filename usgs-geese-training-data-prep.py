@@ -26,7 +26,7 @@ import random
 from collections import defaultdict
 from tqdm import tqdm
 
-from md_visualization import visualization_utils as visutils
+from megadetector.visualization import visualization_utils as visutils
 
 input_annotations_file = os.path.expanduser('~/data/usgs-geese/usgs_geese.json')
 input_base_folder = '/media/user/My Passport/2017-2019'

@@ -84,9 +84,9 @@ Install prerequisites according to the [MegaDetector instructions for prerequisi
 
 Download the [Izembek bird detector](https://github.com/agentmorris/usgs-geese/releases/download/v1.1.0/usgs-geese-yolov5x-230820-b8-img1280-e200-best.pt) to your computer.  It can be anywhere that's convenient, you'll specify the full path to the model file later.
 
-#### 3. Clone this git repo and set up your Python environment
+#### 3. Clone git repos and set up your Python environment
 
-You will need the contents of this repo, and you will also need to set up a Python environment with all the Python packages that our code depends on.  In this section, we provide <a href="#windows-instructions-for-gitpython-stuff">Windows</a>, <a href="#linux-instructions-for-gitpython-stuff">Linux</a>, and <a href="#mac-instructions-for-gitpython-stuff">Mac</a> instructions for doing all of this stuff.
+You will need the contents of this repo and the [YOLOv5 repo](https://github.com/ultralytics/yolov5), and you will also need to set up a Python environment with all the Python packages that our code depends on.  In this section, we provide <a href="#windows-instructions-for-gitpython-stuff">Windows</a>, <a href="#linux-instructions-for-gitpython-stuff">Linux</a>, and <a href="#mac-instructions-for-gitpython-stuff">Mac</a> instructions for doing all of this stuff.
 
 ##### Windows instructions for git/Python stuff
 
@@ -95,10 +95,12 @@ The first time you set all of this up, open your Mambaforge prompt, and run:
 ```batch
 mkdir c:\git
 cd c:\git
+git clone https://github.com/ultralytics/yolov5
 git clone https://github.com/agentmorris/usgs-geese
 cd c:\git\usgs-geese
-mamba env create --file environment-inference.yml
+mamba create -n usgs-geese-inference python=3.11 pip -y
 mamba activate usgs-geese-inference
+pip install -r requirements.txt
 ```
 
 <a name="windows-new-shell"></a>
@@ -109,18 +111,6 @@ cd c:\git\usgs-geese
 mamba activate usgs-geese-inference
 ```
 
-You can also install the requirements via pip (we're still using mamba here to create a Python environment, but we're using pip to install all the dependencies):
-
-```batch
-mkdir c:\git
-cd c:\git
-git clone https://github.com/agentmorris/usgs-geese
-cd c:\git\usgs-geese
-mamba create -y -n usgs-geese-inference python=3.11 pip
-mamba activate usgs-geese-inference
-pip install -r requirements.txt
-```
-
 ##### Linux/Mac instructions for git/Python stuff
 
 If you have installed Mambaforge on Linux or MacOS, you are probably always at an Mambaforge prompt; i.e., you should see "(base)" at your command prompt.  Assuming you see that, the first time you set all of this up, and run:
@@ -128,10 +118,12 @@ If you have installed Mambaforge on Linux or MacOS, you are probably always at a
 ```batch
 mkdir ~/git
 cd ~/git
+git clone https://github.com/ultralytics/yolov5
 git clone https://github.com/agentmorris/usgs-geese
 cd ~/git/usgs-geese
-mamba env create --file environment-inference.yml
+mamba create -n usgs-geese-inference python=3.11 pip -y
 mamba activate usgs-geese-inference
+pip install -r requirements.txt
 ```
 
 <a name="linux-new-shell"></a>
@@ -140,28 +132,6 @@ Your environment is set up now!  In the future, whenever you start a new shell, 
 ```batch
 cd ~/git/usgs-geese
 mamba activate usgs-geese-inference
-```
-
-You can also install the requirements via pip (we're still using mamba here to create a Python environment, but we're using pip to install all the dependencies):
-
-```batch
-mkdir ~/git
-cd ~/git
-git clone https://github.com/agentmorris/usgs-geese
-cd ~/git/usgs-geese
-mamba create -y -n usgs-geese-inference python=3.11 pip
-mamba activate usgs-geese-inference
-pip install -r requirements.txt
-```
-
-##### Updating the Python environment
-
-If time passes and we add packages to the environment file, and you want to update your environment without re-building from scratch, do this (just showing Windows syntax here):
-
-```batch
-cd c:\git\usgs-geese
-mamba activate usgs-geese-inference
-mamba update -f environment-inference.yml
 ```
 
 ### Actually running the model
@@ -176,7 +146,7 @@ mamba activate usgs-geese-inference
 ...or this (on Linux/Mac):
 
 ```batch
-cd ~/git/MegaDetector
+cd ~/git/usgs-geese
 mamba activate usgs-geese-inference
 ```
 

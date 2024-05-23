@@ -18,7 +18,7 @@ import sys
 import importlib
 import argparse
 
-from md_utils.path_utils import open_file
+from megadetector.utils.path_utils import open_file
 
 usgs_geese_postprocessing = importlib.import_module('usgs-geese-postprocessing')
 

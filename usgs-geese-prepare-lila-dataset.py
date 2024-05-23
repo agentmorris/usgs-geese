@@ -18,7 +18,7 @@ import humanfriendly
 from tqdm import tqdm
 from collections import defaultdict
 
-from md_visualization import visualization_utils as vis_utils
+from megadetector.visualization import visualization_utils as vis_utils
 
 input_file = os.path.expanduser('~/data/usgs_geese.json')
 output_dir = os.path.expanduser('~/data/usgs-geese-lila')

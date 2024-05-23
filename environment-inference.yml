@@ -6,18 +6,18 @@ channels:
   - nvidia
 
 dependencies:
-  - python>=3.10
-  - Pillow >= 9.1.0, < 10.0
-  - tqdm>=4.65.0
-  - matplotlib>=3.3
-  - humanfriendly>=10.0  
-  - jsonpickle>=3.0.0
-  - pytorch>=2.0.1
-  - torchvision>=0.15.2
-  - pytorch-cuda>=11.7
-  - ultralytics>=8.0.159
-  - scikit-learn>=1.2.2
+  - python>=3.10,<3.12
+  - Pillow==9.1.0
+  - tqdm==4.65.0
+  - matplotlib==3.3
+  - humanfriendly==10.0  
+  - jsonpickle==3.0.0
+  - pytorch==2.0.1
+  - torchvision==0.15.2
+  - pytorch-cuda-=11.7
+  - ultralytics==8.0.159
+  - scikit-learn==1.2.2
   - pip
 
   - pip:
-    - megadetector 
+    - megadetector>=5.0.12

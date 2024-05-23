@@ -22,10 +22,9 @@ from tqdm import tqdm
 import importlib
 usgs_geese_inference = importlib.import_module('usgs-geese-inference')
 
-from md_visualization import visualization_utils as vis_utils
-from md_utils import path_utils
-
-from detection import run_tiled_inference
+from megadetector.visualization import visualization_utils as vis_utils
+from megadetector.utils import path_utils
+from megadetector.detection import run_tiled_inference
 
 default_preview_confidence_thresholds = [0.4,0.5,0.6,0.7,0.8]
 default_counting_confidence_thresholds = [0.4,0.5,0.6,0.7,0.8]

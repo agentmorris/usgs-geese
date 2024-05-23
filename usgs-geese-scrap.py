@@ -17,8 +17,8 @@ import pandas as pd
 
 from tqdm import tqdm
 
-from md_utils import path_utils
-from md_visualization import visualization_utils as vis_utils
+from megadetector.utils import path_utils
+from megadetector.visualization import visualization_utils as vis_utils
 
 import importlib
 usgs_geese_inference = importlib.import_module('usgs-geese-inference')
