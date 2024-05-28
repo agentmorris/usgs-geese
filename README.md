@@ -183,7 +183,7 @@ If everything worked correctly, in your scratch folder, there will be a folder c
 
 `something_something_something_md_results_image_level_nms.json`
 
-The first bit (something something something) corresponds to the folder name you just processed.  The idea is that you will use the same scratch folder every time, so this part gives the results files a unique name.  This .json file contains the locations of all detections, in the [MegaDetector output format](https://github.com/agentmorris/MegaDetector/tree/main/megadetector/api/batch_processing#megadetector-results-format).
+The first bit (something something something) corresponds to the folder name you just processed.  The idea is that you will use the same scratch folder every time, so this part gives the results files a unique name.  This .json file contains the locations of all detections, in the [MegaDetector results format](https://github.com/agentmorris/MegaDetector/tree/main/megadetector/api/batch_processing#megadetector-batch-output-format).
 
 ### Previewing the results
 
