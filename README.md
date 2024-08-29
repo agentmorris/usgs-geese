@@ -251,7 +251,7 @@ Weiser EL, Flint PL, Marks DK, Shults BS, Wilson HM, Thompson SJ, Fischer JB, 20
 
 ### Training
 
-* The code should require no modification to try YOLOv8 rather than YOLOv5.  We'll have to switch to 640x640 (rather than 1280x1280) patches, but I expect YOLOv8 to be a little better.
+* We tried YOLOv8x in place of YOLOv5x6.  In both cases, we used "all the pixels", i.e. we used a window size that matched the input resolution of the model (640px and 1280px, respectively).  YOLOv8x was slightly worse than YOLOv5x6.  It would be informative to try YOLOv9-e and YOLOv10x.
 
 ### Inference
 
