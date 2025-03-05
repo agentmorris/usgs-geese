@@ -2,7 +2,9 @@
 
 ### Overview
 
-The code in this repo trains, runs, and evaluates models to detect geese in aerial images, based on the <a href="https://www.usgs.gov/data/aerial-photo-imagery-fall-waterfowl-surveys-izembek-lagoon-alaska-2017-2019">Izembek Lagoon dataset</a> (complete citation [below](#data-source)).  Images are annotated with points, labeled as brant, Canada, gull, emperor, and other.  The goal is accuracy on brant, which is by far the most common class (there are around 400k "brant" points, and less than 100k of everything else combined).
+The code in this repo trains, runs, and evaluates models to detect geese in aerial images, based on the <a href="https://www.usgs.gov/data/aerial-photo-imagery-fall-waterfowl-surveys-izembek-lagoon-alaska-2017-2019">Izembek Lagoon dataset</a> (complete citation [below](#data-source)).  That dataset is also [publicly available on LILA](https://lila.science/datasets/izembek-lagoon-waterfowl/).
+
+Images were originally annotated with points, labeled as brant, Canada, gull, emperor, and other.  The goal is accuracy on brant, which is by far the most common class (there are around 400k "brant" points, and less than 100k of everything else combined).  
 
 There are around 100,000 images total, about 95% of which contain no geese.  Images are 8688 x 5792.  A typical ground truth image looks like this:
 
