@@ -30,7 +30,7 @@ from megadetector.utils import process_utils
 from megadetector.visualization import visualization_utils as vis_utils
 from megadetector.detection.run_tiled_inference import get_patch_boundaries, in_place_nms
 from megadetector.data_management.yolo_output_to_md_output import yolo_json_output_to_md_output
-from megadetector.postprocessing import combine_api_outputs
+from megadetector.postprocessing import combine_batch_outputs
 from megadetector.postprocessing.subset_json_detector_output import \
     subset_json_detector_output, SubsetJsonDetectorOutputOptions
 
@@ -830,9 +830,9 @@ def run_model_on_folder(input_folder_base,inference_options=None):
         inference_options.project_md_formatted_results_dir,
         folder_name_clean + '.json').replace('\\','/')
     
-    _ = combine_api_outputs.combine_api_output_files(md_formatted_results_files_for_chunks,
-                                                 md_formatted_results_file_for_folder,
-                                                 require_uniqueness=True)
+    _ = combine_batch_outputs.combine_batch_output_files(md_formatted_results_files_for_chunks,
+                                                         md_formatted_results_file_for_folder,
+                                                         require_uniqueness=True)
     assert os.path.isfile(md_formatted_results_file_for_folder), \
         'Results file {} does not exist'.format(md_formatted_results_file_for_folder)
     
