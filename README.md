@@ -2,11 +2,13 @@
 
 ### Overview
 
-The code in this repo trains, runs, and evaluates models to detect geese in aerial images, based on the <a href="https://www.usgs.gov/data/aerial-photo-imagery-fall-waterfowl-surveys-izembek-lagoon-alaska-2017-2019">Izembek Lagoon dataset</a> (complete citation [below](#data-source)).  That dataset is also [publicly available on LILA](https://lila.science/datasets/izembek-lagoon-waterfowl/).
+The code in this repo trains, runs, and evaluates a model to detect geese (particularly brant geese) in aerial images, based on the <a href="https://www.usgs.gov/data/aerial-photo-imagery-fall-waterfowl-surveys-izembek-lagoon-alaska-2017-2019">Izembek Lagoon dataset</a> (complete citation [below](#data-source)).  That dataset is also [publicly available on LILA](https://lila.science/datasets/izembek-lagoon-waterfowl/).
 
-Images were originally annotated with points, labeled as brant, Canada, gull, emperor, and other.  The goal is accuracy on brant, which is by far the most common class (there are around 400k "brant" points, and less than 100k of everything else combined).  
+The model hosted here is used to accelerate data review by the US Fish & Wildlife team responsible for an annual brant survey; their methodology is described in this [ScienceBase record](https://www.sciencebase.gov/catalog/item/67a6a615d34e329fb20398c2) ([direct link to 2025 report](https://www.sciencebase.gov/catalog/file/get/67a6a615d34e329fb20398c2?f=__disk__c5%2Fc3%2F58%2Fc5c35821631bbb0e72546991504682223674e23d)).  tl;dr: the team was able to reduce their image review load to just 1%-2% of images each year for validation, rather than the prior methodology that required reviewing every image and counting O(hundreds of thousands) of geese manually.  Huzzah.
 
-There are around 100,000 images total, about 95% of which contain no geese.  Images are 8688 x 5792.  A typical ground truth image looks like this:
+The images used for model training were originally annotated with points, labeled as brant, Canada, gull, emperor, and other.  The goal is accuracy on brant, which is by far the most common class (there are around 400k "brant" points, and less than 100k of everything else combined).  
+
+There are around 100,000 training images, about 95% of which contain no geese.  Images are 8688 x 5792.  A typical ground truth image looks like this:
 
 <img src="sample_image.jpg" width="800px;"><br/>
 
